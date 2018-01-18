@@ -2,7 +2,7 @@
 
 This is a toy example of using multiprocessing in Python to asynchronously train a
 neural network to play discrete action [CartPole](https://gym.openai.com/envs/CartPole-v0/) and
-continuous action [Pendulum](https://gym.openai.com/envs/Pendulum-v0/).
+continuous action [Pendulum](https://gym.openai.com/envs/Pendulum-v0/) games.
 The asynchronous algorithm I used is called [Asynchronous Advantage Actor-Critic](https://arxiv.org/pdf/1602.01783.pdf) or A3C.
 
 I believe it would be the most simple toy implementation you can find at the moment (2018-01).
@@ -29,7 +29,10 @@ Therefore, this is my motivation to write my simple example codes.
 
 ## Results
 
+CartPole
 ![cartpole](/cartpole.png)
+
+Pendulum
 ![pendulum](/pendulum.png)
 
 ## Dependencies
