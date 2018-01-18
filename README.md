@@ -30,10 +30,10 @@ Therefore, this is my motivation to write my simple example codes.
 ## Results
 
 CartPole
-![cartpole](/cartpole.png)
+![cartpole](/results/cartpole.png)
 
 Pendulum
-![pendulum](/pendulum.png)
+![pendulum](/results/pendulum.png)
 
 ## Dependencies
 
