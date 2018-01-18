@@ -1,3 +1,7 @@
+"""
+Shared optimizer, the parameters in the optimizer will shared in the multiprocessors.
+"""
+
 import torch
 
 

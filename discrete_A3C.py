@@ -6,9 +6,8 @@ View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.i
 """
 
 import torch
-import numpy as np
 import torch.nn as nn
-from utils import v_wrap, set_init
+from utils import v_wrap, set_init, push_and_pull
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
@@ -16,7 +15,7 @@ import gym
 
 UPDATE_GLOBAL_ITER = 10
 GAMMA = 0.9
-MAX_EP = 4000
+MAX_EP = 2000
 
 env = gym.make('CartPole-v0')
 N_S = env.observation_space.shape[0]
@@ -78,11 +77,12 @@ class Worker(mp.Process):
     def run(self):
         total_step = 1
         while self.global_ep.value < MAX_EP:
-
             s = self.env.reset()
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             while True:
+                if self.name == 'w0':
+                    self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
                 s_, r, done, _ = self.env.step(a)
                 if done: r = -1
@@ -92,32 +92,8 @@ class Worker(mp.Process):
                 buffer_r.append(r)
 
                 if total_step % UPDATE_GLOBAL_ITER == 0 or done:  # update global and assign to local net
-                    if done:
-                        v_s_ = 0.               # terminal
-                    else:
-                        v_s_ = self.lnet.forward(v_wrap(s_[None, :]))[-1].data.numpy()[0, 0]
-                    buffer_v_target = []
-                    for r in buffer_r[::-1]:    # reverse buffer r
-                        v_s_ = r + GAMMA * v_s_
-                        buffer_v_target.append(v_s_)
-                    buffer_v_target.reverse()
-
-                    buffer_s = v_wrap(np.vstack(buffer_s))
-                    buffer_a = v_wrap(np.array(buffer_a), dtype=np.int64)
-                    buffer_v_target = v_wrap(np.array(buffer_v_target)[:, None])
-
-                    loss = self.lnet.loss_func(buffer_s, buffer_a, buffer_v_target)
-
-                    # calculate local gradients and push local parameters to global
-                    self.opt.zero_grad()
-                    loss.backward()
-                    for lp, gp in zip(self.lnet.parameters(), self.gnet.parameters()):
-                        gp._grad = lp.grad
-                    self.opt.step()
-
-                    # pull global parameters
-                    self.lnet.load_state_dict(self.gnet.state_dict())
-
+                    # sync
+                    push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                 s = s_
@@ -140,14 +116,11 @@ class Worker(mp.Process):
 if __name__ == "__main__":
     gnet = Net(N_S, N_A)        # global network
     gnet.share_memory()         # share the global parameters in multiprocessing
-
-    global_ep = mp.Value('i', 0)
-    global_ep_r = mp.Value('d', 0.)
-    res_queue = mp.Queue()
-    opt = SharedAdam(gnet.parameters(), lr=0.0001)      # global optimizer
+    opt = SharedAdam(gnet.parameters(), lr=0.0005)      # global optimizer
+    global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
-    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(4)]
+    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(mp.cpu_count())]
     [w.start() for w in workers]
     res = []                    # record episode reward to plot
     while True:
