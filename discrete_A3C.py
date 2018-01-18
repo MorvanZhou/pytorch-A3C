@@ -7,7 +7,7 @@ View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.i
 
 import torch
 import torch.nn as nn
-from utils import v_wrap, set_init, push_and_pull
+from utils import v_wrap, set_init, push_and_pull, record
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
@@ -15,7 +15,7 @@ import gym
 
 UPDATE_GLOBAL_ITER = 10
 GAMMA = 0.9
-MAX_EP = 2000
+MAX_EP = 4000
 
 env = gym.make('CartPole-v0')
 N_S = env.observation_space.shape[0]
@@ -66,17 +66,14 @@ class Worker(mp.Process):
     def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, name):
         super(Worker, self).__init__()
         self.name = 'w%i' % name
-        self.global_ep = global_ep
-        self.global_ep_r = global_ep_r
-        self.res_queue = res_queue
-        self.gnet = gnet
-        self.opt = opt
+        self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
+        self.gnet, self.opt = gnet, opt
         self.lnet = Net(N_S, N_A)           # local network
         self.env = gym.make('CartPole-v0').unwrapped
 
     def run(self):
         total_step = 1
-        while self.global_ep.value < MAX_EP:
+        while self.g_ep.value < MAX_EP:
             s = self.env.reset()
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
@@ -96,27 +93,18 @@ class Worker(mp.Process):
                     push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                     buffer_s, buffer_a, buffer_r = [], [], []
 
+                    if done:  # done and print information
+                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
+                        break
                 s = s_
                 total_step += 1
-                if done:                    # done and plot information
-                    with self.global_ep.get_lock():
-                        self.global_ep.value += 1
-                    with self.global_ep_r.get_lock():
-                        self.global_ep_r.value = self.global_ep_r.value*0.99 + ep_r*0.01
-                    self.res_queue.put(self.global_ep_r.value)
-                    print(
-                        self.name,
-                        "Ep:", self.global_ep.value,
-                        "| Ep_r: %.0f" % self.global_ep_r.value,
-                    )
-                    break
         self.res_queue.put(None)
 
 
 if __name__ == "__main__":
     gnet = Net(N_S, N_A)        # global network
     gnet.share_memory()         # share the global parameters in multiprocessing
-    opt = SharedAdam(gnet.parameters(), lr=0.0005)      # global optimizer
+    opt = SharedAdam(gnet.parameters(), lr=0.0001)      # global optimizer
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
