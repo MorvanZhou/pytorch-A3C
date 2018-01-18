@@ -5,7 +5,7 @@ neural network to play discrete action [CartPole](https://gym.openai.com/envs/Ca
 continuous action [Pendulum](https://gym.openai.com/envs/Pendulum-v0/) games.
 The asynchronous algorithm I used is called [Asynchronous Advantage Actor-Critic](https://arxiv.org/pdf/1602.01783.pdf) or A3C.
 
-I believe it would be the most simple toy implementation you can find at the moment (2018-01).
+I believe it would be the simplest toy implementation you can find at the moment (2018-01).
 
 ## What are the main focuses in this implementation?
 
