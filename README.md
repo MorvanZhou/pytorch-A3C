@@ -13,7 +13,7 @@ I believe it would be the most simple toy implementation you can find at the mom
 * Both discrete and continuous action environments
 * To be simple and easy to dig into the code (less than 200 lines)
 
-## Reason to use [Pytorch](http://pytorch.org/) instead of [Tensorflow](https://www.tensorflow.org/)
+## Reason of using [Pytorch](http://pytorch.org/) instead of [Tensorflow](https://www.tensorflow.org/)
 
 Both of them are great for building your customized neural network. But to work
 with multiprocessing, Tensorflow is not that great due to its low compatibility with multiprocessing.
