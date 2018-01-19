@@ -16,7 +16,7 @@ import math
 
 UPDATE_GLOBAL_ITER = 5
 GAMMA = 0.9
-MAX_EP = 4000
+MAX_EP = 3000
 MAX_EP_STEP = 200
 
 env = gym.make('Pendulum-v0')
@@ -60,7 +60,7 @@ class Net(nn.Module):
         m = self.distribution(mean=mu, std=sigma)
         log_prob = m.log_prob(a)
         entropy = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(m.std)  # exploration
-        exp_v = log_prob * td.detach() + 0.01 * entropy
+        exp_v = log_prob * td.detach() + 0.005 * entropy
         a_loss = -exp_v
         total_loss = (a_loss + c_loss).mean()
         return total_loss
@@ -110,7 +110,7 @@ class Worker(mp.Process):
 if __name__ == "__main__":
     gnet = Net(N_S, N_A)        # global network
     gnet.share_memory()         # share the global parameters in multiprocessing
-    opt = SharedAdam(gnet.parameters(), lr=0.0001)  # global optimizer
+    opt = SharedAdam(gnet.parameters(), lr=0.0002)  # global optimizer
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
