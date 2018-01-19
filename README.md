@@ -27,12 +27,17 @@ I went through many Pytorch A3C examples ([there](https://github.com/ikostrikov/
 and [there](https://github.com/ShangtongZhang/DeepRL)). They are great but too complicated to dig into the code.
 Therefore, this is my motivation to write my simple example codes.
 
-## Results
+## Codes & Results
 
-CartPole
+* [shared_adam.py](/shared_adam.py): optimizer that shares its parameters in parallel
+* [utils.py](/utils.py): useful function that can be used more than once
+* [discrete_A3C.py](/discrete_A3C.py): CartPole, neural net and training for discrete action space
+* [continuous_A3C.py](/continuous_A3C.py): Pendulum, neural net and training for continuous action space
+
+CartPole result
 ![cartpole](/results/cartpole.png)
 
-Pendulum
+Pendulum result
 ![pendulum](/results/pendulum.png)
 
 ## Dependencies
