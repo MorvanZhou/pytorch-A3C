@@ -27,6 +27,9 @@ I went through many Pytorch A3C examples ([there](https://github.com/ikostrikov/
 and [there](https://github.com/ShangtongZhang/DeepRL)). They are great but too complicated to dig into the code.
 Therefore, this is my motivation to write my simple example codes.
 
+BTW, if you are interested to learn Pytorch, [there](https://github.com/MorvanZhou/PyTorch-Tutorial)
+ is my simple tutorial code with many visualizations. I also made the tensorflow tutorial (same as pytorch) available in [here](https://github.com/MorvanZhou/Tensorflow-Tutorial).
+
 ## Codes & Results
 
 * [shared_adam.py](/shared_adam.py): optimizer that shares its parameters in parallel
