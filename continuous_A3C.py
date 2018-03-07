@@ -12,7 +12,8 @@ import torch.nn.functional as F
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
 import gym
-import math
+import math, os
+os.environ["OMP_NUM_THREADS"] = "1"
 
 UPDATE_GLOBAL_ITER = 5
 GAMMA = 0.9
