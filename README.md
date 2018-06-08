@@ -45,6 +45,6 @@ Pendulum result
 
 ## Dependencies
 
-* pytorch >= 0.3
+* pytorch >= 0.4.0
 * numpy
 * gym

@@ -49,7 +49,7 @@ class Net(nn.Module):
     def choose_action(self, s):
         self.training = False
         mu, sigma, _ = self.forward(s)
-        m = self.distribution(mean=mu.view(1, ).data, std=sigma.view(1, ).data)
+        m = self.distribution(mu.view(1, ).data, sigma.view(1, ).data)
         return m.sample().numpy()
 
     def loss_func(self, s, a, v_t):
@@ -58,9 +58,9 @@ class Net(nn.Module):
         td = v_t - values
         c_loss = td.pow(2)
 
-        m = self.distribution(mean=mu, std=sigma)
+        m = self.distribution(mu, sigma)
         log_prob = m.log_prob(a)
-        entropy = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(m.std)  # exploration
+        entropy = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(m.scale)  # exploration
         exp_v = log_prob * td.detach() + 0.005 * entropy
         a_loss = -exp_v
         total_loss = (a_loss + c_loss).mean()
