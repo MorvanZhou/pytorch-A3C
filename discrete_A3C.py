@@ -58,7 +58,7 @@ class Net(nn.Module):
         
         probs = F.softmax(logits, dim=1)
         m = self.distribution(probs)
-        exp_v = m.log_prob(a) * td.detach()
+        exp_v = m.log_prob(a) * td.detach().squeeze()
         a_loss = -exp_v
         total_loss = (c_loss + a_loss).mean()
         return total_loss
