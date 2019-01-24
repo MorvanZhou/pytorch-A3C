@@ -30,19 +30,19 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.s_dim = s_dim
         self.a_dim = a_dim
-        self.a1 = nn.Linear(s_dim, 100)
-        self.mu = nn.Linear(100, a_dim)
-        self.sigma = nn.Linear(100, a_dim)
+        self.a1 = nn.Linear(s_dim, 200)
+        self.mu = nn.Linear(200, a_dim)
+        self.sigma = nn.Linear(200, a_dim)
         self.c1 = nn.Linear(s_dim, 100)
         self.v = nn.Linear(100, 1)
         set_init([self.a1, self.mu, self.sigma, self.c1, self.v])
         self.distribution = torch.distributions.Normal
 
     def forward(self, x):
-        a1 = F.relu(self.a1(x))
+        a1 = F.relu6(self.a1(x))
         mu = 2 * F.tanh(self.mu(a1))
         sigma = F.softplus(self.sigma(a1)) + 0.001      # avoid 0
-        c1 = F.relu(self.c1(x))
+        c1 = F.relu6(self.c1(x))
         values = self.v(c1)
         return mu, sigma, values
 

@@ -29,17 +29,17 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.s_dim = s_dim
         self.a_dim = a_dim
-        self.pi1 = nn.Linear(s_dim, 100)
-        self.pi2 = nn.Linear(100, a_dim)
+        self.pi1 = nn.Linear(s_dim, 200)
+        self.pi2 = nn.Linear(200, a_dim)
         self.v1 = nn.Linear(s_dim, 100)
         self.v2 = nn.Linear(100, 1)
         set_init([self.pi1, self.pi2, self.v1, self.v2])
         self.distribution = torch.distributions.Categorical
 
     def forward(self, x):
-        pi1 = F.relu(self.pi1(x))
+        pi1 = F.relu6(self.pi1(x))
         logits = self.pi2(pi1)
-        v1 = F.relu(self.v1(x))
+        v1 = F.relu6(self.v1(x))
         values = self.v2(v1)
         return logits, values
 
