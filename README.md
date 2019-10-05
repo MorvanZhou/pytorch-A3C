@@ -48,3 +48,4 @@ Pendulum result
 * pytorch >= 0.4.0
 * numpy
 * gym
+* matplotlib
