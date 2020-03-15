@@ -15,9 +15,9 @@ import gym
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
-UPDATE_GLOBAL_ITER = 10
+UPDATE_GLOBAL_ITER = 5
 GAMMA = 0.9
-MAX_EP = 4000
+MAX_EP = 3000
 
 env = gym.make('CartPole-v0')
 N_S = env.observation_space.shape[0]
@@ -29,17 +29,17 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.s_dim = s_dim
         self.a_dim = a_dim
-        self.pi1 = nn.Linear(s_dim, 200)
-        self.pi2 = nn.Linear(200, a_dim)
-        self.v1 = nn.Linear(s_dim, 100)
-        self.v2 = nn.Linear(100, 1)
+        self.pi1 = nn.Linear(s_dim, 128)
+        self.pi2 = nn.Linear(128, a_dim)
+        self.v1 = nn.Linear(s_dim, 128)
+        self.v2 = nn.Linear(128, 1)
         set_init([self.pi1, self.pi2, self.v1, self.v2])
         self.distribution = torch.distributions.Categorical
 
     def forward(self, x):
-        pi1 = F.relu6(self.pi1(x))
+        pi1 = torch.tanh(self.pi1(x))
         logits = self.pi2(pi1)
-        v1 = F.relu6(self.v1(x))
+        v1 = torch.tanh(self.v1(x))
         values = self.v2(v1)
         return logits, values
 
@@ -67,7 +67,7 @@ class Net(nn.Module):
 class Worker(mp.Process):
     def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, name):
         super(Worker, self).__init__()
-        self.name = 'w%i' % name
+        self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.gnet, self.opt = gnet, opt
         self.lnet = Net(N_S, N_A)           # local network
@@ -80,7 +80,7 @@ class Worker(mp.Process):
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             while True:
-                if self.name == 'w0':
+                if self.name == 'w00':
                     self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
                 s_, r, done, _ = self.env.step(a)
@@ -106,7 +106,7 @@ class Worker(mp.Process):
 if __name__ == "__main__":
     gnet = Net(N_S, N_A)        # global network
     gnet.share_memory()         # share the global parameters in multiprocessing
-    opt = SharedAdam(gnet.parameters(), lr=0.0001)      # global optimizer
+    opt = SharedAdam(gnet.parameters(), lr=1e-4, betas=(0.92, 0.999))      # global optimizer
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
