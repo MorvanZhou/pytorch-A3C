@@ -19,6 +19,8 @@ UPDATE_GLOBAL_ITER = 5
 GAMMA = 0.9
 MAX_EP = 3000
 
+
+
 env = gym.make('CartPole-v0')
 N_S = env.observation_space.shape[0]
 N_A = env.action_space.n
