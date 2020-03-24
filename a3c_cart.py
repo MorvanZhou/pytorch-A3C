@@ -2,7 +2,6 @@
 Reinforcement Learning (A3C) using Pytroch + multiprocessing.
 The most simple implementation for continuous action.
 
-View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.io/).
 """
 
 import torch
@@ -12,12 +11,16 @@ import torch.nn.functional as F
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
 import gym
+import sys
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
-UPDATE_GLOBAL_ITER = 5
+import argparse
+import matplotlib.pyplot as plt
+
+UPDATE_GLOBAL_ITER = 20
 GAMMA = 0.9
-MAX_EP = 3000
+MAX_EP = 5000
 
 
 
@@ -26,24 +29,50 @@ N_S = env.observation_space.shape[0]
 N_A = env.action_space.n
 
 
+def plotter():
+    plt.plot(res)
+    plt.ylabel('Average Reward')
+    plt.xlabel('Step')
+    plt.show()
+
+
+def handleArguments():
+    """Handles CLI arguments and saves them globally"""
+    parser = argparse.ArgumentParser(
+        description="Switch between modes in A2C or loading models from previous games")
+    parser.add_argument("--demo_mode", "-d", help="Renders the gym environment", action="store_true")
+    parser.add_argument("--load_model", "-l", help="Loads the model of previously gained training data", action="store_true")
+    global args
+    args = parser.parse_args()
+
+
 class Net(nn.Module):
     def __init__(self, s_dim, a_dim):
         super(Net, self).__init__()
         self.s_dim = s_dim
         self.a_dim = a_dim
-        self.pi1 = nn.Linear(s_dim, 128)
-        self.pi2 = nn.Linear(128, a_dim)
-        self.v1 = nn.Linear(s_dim, 128)
-        self.v2 = nn.Linear(128, 1)
-        set_init([self.pi1, self.pi2, self.v1, self.v2])
+        self.pi1 = nn.Linear(s_dim, 24)
+        self.pi2 = nn.Linear(24, 24)
+        self.pi3 = nn.Linear(24, a_dim)
+        self.v1 = nn.Linear(s_dim, 24)
+        self.v2 = nn.Linear(24, 24)
+        self.v3 = nn.Linear(24, 1)
+        set_init([self.pi1, self.pi2, self.pi3, self.v1, self.v2, self.v3])
         self.distribution = torch.distributions.Categorical
 
     def forward(self, x):
-        pi1 = torch.tanh(self.pi1(x))
-        logits = self.pi2(pi1)
-        v1 = torch.tanh(self.v1(x))
-        values = self.v2(v1)
+        pi1 = F.relu(self.pi1(x))
+        pi2 = F.relu(self.pi2(pi1))
+        logits = self.pi3(pi2)
+        v1 = F.relu(self.v1(x))
+        v2 = F.relu(self.v2(v1))
+        values = self.v3(v2)
         return logits, values
+
+    def set_init(layers):
+        for layer in layers:
+            nn.init.xavier_uniform_(layer.weight, nn.init.calculate_gain('relu'))
+            nn.init.xavier_uniform_(layer.bias, nn.init.calculate_gain('relu'))
 
     def choose_action(self, s):
         self.eval()
@@ -77,12 +106,13 @@ class Worker(mp.Process):
 
     def run(self):
         total_step = 1
-        while self.g_ep.value < MAX_EP:
+        stop_processes = False
+        while self.g_ep.value < MAX_EP and stop_processes is False:
             s = self.env.reset()
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             while True:
-                if self.name == 'w00':
+                if self.name == 'w00' and args.demo_mode:
                     self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
                 s_, r, done, _ = self.env.step(a)
@@ -100,15 +130,28 @@ class Worker(mp.Process):
                     if done:  # done and print information
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
                         break
+
+                if self.g_ep_r.value > 600:
+                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
+                    stop_processes = True
+                    break
                 s = s_
                 total_step += 1
         self.res_queue.put(None)
 
 
 if __name__ == "__main__":
-    gnet = Net(N_S, N_A)        # global network
+    handleArguments()
+    # load global network
+    if args.load_model:
+        gnet = Net(N_S, N_A)
+        gnet.load_state_dict(torch.load("./save_model/a3c_cart.pt"))
+        gnet.eval()
+    else:
+        gnet = Net(N_S, N_A)
+
     gnet.share_memory()         # share the global parameters in multiprocessing
-    opt = SharedAdam(gnet.parameters(), lr=1e-4, betas=(0.92, 0.999))      # global optimizer
+    opt = SharedAdam(gnet.parameters(), lr=0.003, betas=(0.92, 0.999))      # global optimizer
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
@@ -117,14 +160,18 @@ if __name__ == "__main__":
     res = []                    # record episode reward to plot
     while True:
         r = res_queue.get()
+        score = res_queue.get(global_ep_r.value)
         if r is not None:
             res.append(r)
         else:
             break
-    [w.join() for w in workers]
 
-    import matplotlib.pyplot as plt
-    plt.plot(res)
-    plt.ylabel('Moving average ep reward')
-    plt.xlabel('Step')
-    plt.show()
+        if score > 600:
+            torch.save(gnet.state_dict(), "./save_model/a3c_cart.pt")
+
+
+    [w.join() for w in workers]
+    plotter()
+    sys.exit()
+
+
