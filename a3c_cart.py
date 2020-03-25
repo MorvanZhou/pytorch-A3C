@@ -10,6 +10,7 @@ from utils import v_wrap, set_init, push_and_pull, record
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
+import numpy as np
 import gym
 import sys
 import os
@@ -20,7 +21,7 @@ import matplotlib.pyplot as plt
 
 UPDATE_GLOBAL_ITER = 20
 GAMMA = 0.9
-MAX_EP = 5000
+MAX_EP = mp.cpu_count()*1000
 
 
 
@@ -32,7 +33,7 @@ N_A = env.action_space.n
 def plotter():
     plt.plot(res)
     plt.ylabel('Average Reward')
-    plt.xlabel('Step')
+    plt.xlabel('Episode')
     plt.show()
 
 
@@ -107,6 +108,7 @@ class Worker(mp.Process):
     def run(self):
         total_step = 1
         stop_processes = False
+        scores = []
         while self.g_ep.value < MAX_EP and stop_processes is False:
             s = self.env.reset()
             buffer_s, buffer_a, buffer_r = [], [], []
@@ -122,6 +124,7 @@ class Worker(mp.Process):
                 buffer_s.append(s)
                 buffer_r.append(r)
 
+
                 if total_step % UPDATE_GLOBAL_ITER == 0 or done:  # update global and assign to local net
                     # sync
                     push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
@@ -129,12 +132,12 @@ class Worker(mp.Process):
 
                     if done:  # done and print information
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
+                        scores.append(int(self.g_ep_r.value))
+                        if np.mean(scores[-min(10, len(scores)):]) > 500:
+                            record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
+                            stop_processes = True
                         break
 
-                if self.g_ep_r.value > 600:
-                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
-                    stop_processes = True
-                    break
                 s = s_
                 total_step += 1
         self.res_queue.put(None)
@@ -166,11 +169,9 @@ if __name__ == "__main__":
         else:
             break
 
-        if score > 600:
-            torch.save(gnet.state_dict(), "./save_model/a3c_cart.pt")
-
 
     [w.join() for w in workers]
+    torch.save(gnet.state_dict(), "./save_model/a3c_cart.pt")
     plotter()
     sys.exit()
 
