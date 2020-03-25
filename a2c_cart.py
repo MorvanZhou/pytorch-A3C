@@ -6,7 +6,7 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from utils import v_wrap, set_init, push_and_pull, record
+from utils import v_wrap, set_init
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
@@ -20,9 +20,8 @@ import argparse
 import matplotlib.pyplot as plt
 import time
 
-UPDATE_GLOBAL_ITER = 20
 GAMMA = 0.9
-MAX_EP = mp.cpu_count()*1000
+MAX_EP = 1000
 
 
 
@@ -47,6 +46,31 @@ def handleArguments():
     global args
     args = parser.parse_args()
 
+
+def push_and_pull(opt, gnet, done, s_, bs, ba, br, gamma):
+    if done:
+        v_s_ = 0.               # terminal
+    else:
+        v_s_ = gnet.forward(v_wrap(s_[None, :]))[-1].data.numpy()[0, 0]
+
+    buffer_v_target = []
+    for r in br[::-1]:    # reverse buffer r
+        v_s_ = r + gamma * v_s_
+        buffer_v_target.append(v_s_)
+    buffer_v_target.reverse()
+
+    loss = gnet.loss_func(
+        v_wrap(np.vstack(bs)),
+        v_wrap(np.array(ba), dtype=np.int64) if ba[0].dtype == np.int64 else v_wrap(np.vstack(ba)),
+        v_wrap(np.array(buffer_v_target)[:, None]))
+
+    # calculate local gradients and push local parameters to global
+    opt.zero_grad()
+    loss.backward()
+    opt.step()
+
+    # pull global parameters
+    gnet.load_state_dict(gnet.state_dict())
 
 class Net(nn.Module):
     def __init__(self, s_dim, a_dim):
@@ -97,55 +121,6 @@ class Net(nn.Module):
         return total_loss
 
 
-class Worker(mp.Process):
-    def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, name):
-        super(Worker, self).__init__()
-        self.name = 'w%02i' % name
-        self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
-        self.gnet, self.opt = gnet, opt
-        self.lnet = Net(N_S, N_A)           # local network
-        self.env = gym.make('CartPole-v0').unwrapped
-
-    def run(self):
-        total_step = 1
-        stop_processes = False
-        scores = []
-        while self.g_ep.value < MAX_EP and stop_processes is False:
-            s = self.env.reset()
-            buffer_s, buffer_a, buffer_r = [], [], []
-            ep_r = 0.
-            while True:
-                if self.name == 'w00' and args.demo_mode:
-                    self.env.render()
-                a = self.lnet.choose_action(v_wrap(s[None, :]))
-                s_, r, done, _ = self.env.step(a)
-                if done: r = -1
-                ep_r += r
-                buffer_a.append(a)
-                buffer_s.append(s)
-                buffer_r.append(r)
-
-                if self.g_ep_r.value >= 100:
-                    self.g_ep_r.value = 100
-
-                if self.g_ep.value % UPDATE_GLOBAL_ITER == 0 or done:  # update global and assign to local net
-                    # sync
-                    push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                    buffer_s, buffer_a, buffer_r = [], [], []
-
-                    if done:  # done and print information
-                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
-                        scores.append(int(self.g_ep_r.value))
-                        if np.mean(scores[-min(10, len(scores)):]) >= 500:
-                            record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
-                            stop_processes = True
-                        break
-
-                s = s_
-                total_step += 1
-        self.res_queue.put(None)
-
-
 if __name__ == "__main__":
     handleArguments()
     # load global network
@@ -156,21 +131,48 @@ if __name__ == "__main__":
     else:
         gnet = Net(N_S, N_A)
 
-    gnet.share_memory()         # share the global parameters in multiprocessing
-    opt = SharedAdam(gnet.parameters(), lr=0.003, betas=(0.92, 0.999))      # global optimizer
-    global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
+    opt = SharedAdam(gnet.parameters(), lr=0.01, betas=(0.92, 0.999))      # global optimizer
+    global_ep, global_ep_r = 1, 0.
 
-    # parallel training
-    worker = Worker(gnet, opt, global_ep, global_ep_r, res_queue, 0)
-    worker.start()
     res = []  # record episode reward to plot
 
-    while True:
-        r = res_queue.get()
-        if r is not None:
-            res.append(r)
-        else:
-            break
+    name = 'w00'
+    total_step = 1
+    stop_processes = False
+    scores = []
+    while global_ep < MAX_EP and stop_processes is False:
+        s = env.reset()
+        buffer_s, buffer_a, buffer_r = [], [], []
+        ep_r = 0.
+        while True:
+            if name == 'w00' and args.demo_mode:
+                env.render()
+            a = gnet.choose_action(v_wrap(s[None, :]))
+            s_, r, done, _ = env.step(a)
+            if done: r = -1
+            ep_r += r
+            buffer_a.append(a)
+            buffer_s.append(s)
+            buffer_r.append(r)
+            if done or ep_r >= 500:  # update network
+                # sync
+                push_and_pull(opt, gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
+                buffer_s, buffer_a, buffer_r = [], [], []
+
+                global_ep += 1
+                #record: global_ep, global_ep_r and ep_r
+                if global_ep_r == 0.:
+                    global_ep_r = ep_r
+                else:
+
+                    global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
+                print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r)
+                scores.append(int(global_ep_r))
+                if np.mean(scores[-min(10, len(scores)):]) >= 500:
+                    stop_processes = True
+                break
+            s = s_
+            total_step += 1
 
     torch.save(gnet.state_dict(), "./save_model/a2c_cart.pt")
     plotter()
