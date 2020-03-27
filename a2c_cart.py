@@ -21,18 +21,18 @@ import matplotlib.pyplot as plt
 import time
 
 GAMMA = 0.9
-MAX_EP = 1000
+MAX_EP = 5000
 
 
 
-env = gym.make('CartPole-v0')
+env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
 N_A = env.action_space.n
 
 
 def plotter():
     plt.plot(res)
-    plt.ylabel('Average Reward')
+    plt.ylabel('Score')
     plt.xlabel('Episode')
     plt.show()
 
@@ -126,12 +126,12 @@ if __name__ == "__main__":
     # load global network
     if args.load_model:
         gnet = Net(N_S, N_A)
-        gnet.load_state_dict(torch.load("./save_model/a2c_cart.pt"))
+        gnet = torch.load("./save_model/a3c_cart.pt")
         gnet.eval()
     else:
         gnet = Net(N_S, N_A)
 
-    opt = SharedAdam(gnet.parameters(), lr=0.01, betas=(0.92, 0.999))      # global optimizer
+    opt = SharedAdam(gnet.parameters(), lr=0.003, betas=(0.92, 0.999))      # global optimizer
     global_ep, global_ep_r = 1, 0.
 
     res = []  # record episode reward to plot
@@ -154,17 +154,16 @@ if __name__ == "__main__":
             buffer_a.append(a)
             buffer_s.append(s)
             buffer_r.append(r)
-            if done or ep_r >= 500:  # update network
+            if done or ep_r == 700:  # update network
                 # sync
                 push_and_pull(opt, gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                 buffer_s, buffer_a, buffer_r = [], [], []
 
                 global_ep += 1
-                #record: global_ep, global_ep_r and ep_r
+
                 if global_ep_r == 0.:
                     global_ep_r = ep_r
                 else:
-
                     global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
                 print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r)
                 scores.append(int(global_ep_r))
@@ -174,6 +173,10 @@ if __name__ == "__main__":
             s = s_
             total_step += 1
 
-    torch.save(gnet.state_dict(), "./save_model/a2c_cart.pt")
+    if np.mean(scores[-min(10, len(scores)):]) >= 300:
+        print("Save model")
+        torch.save(gnet, "./save_model/a3c_cart.pt")
+    else:
+        print("Failed to train agent. Model was not saved")
     plotter()
     sys.exit()

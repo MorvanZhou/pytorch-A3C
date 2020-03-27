@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 UPDATE_GLOBAL_ITER = 20
 GAMMA = 0.9
-MAX_EP = mp.cpu_count()*1000
+MAX_EP = mp.cpu_count()*100
 
 
 
@@ -125,16 +125,15 @@ class Worker(mp.Process):
                 buffer_r.append(r)
 
 
-                if total_step % UPDATE_GLOBAL_ITER == 0 or done:  # update global and assign to local net
+                if total_step % UPDATE_GLOBAL_ITER == 0 or done or ep_r == 700:  # update global and assign to local net
                     # sync
                     push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                     buffer_s, buffer_a, buffer_r = [], [], []
 
-                    if done:  # done and print information
+                    if done or ep_r == 700:  # done and print information
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
                         scores.append(int(self.g_ep_r.value))
-                        if np.mean(scores[-min(10, len(scores)):]) > 500:
-                            record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
+                        if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 500:
                             stop_processes = True
                         break
 
@@ -148,13 +147,13 @@ if __name__ == "__main__":
     # load global network
     if args.load_model:
         gnet = Net(N_S, N_A)
-        gnet.load_state_dict(torch.load("./save_model/a3c_cart.pt"))
+        gnet = torch.load("./save_model/a3c_cart.pt")
         gnet.eval()
     else:
         gnet = Net(N_S, N_A)
 
     gnet.share_memory()         # share the global parameters in multiprocessing
-    opt = SharedAdam(gnet.parameters(), lr=0.003, betas=(0.92, 0.999))      # global optimizer
+    opt = SharedAdam(gnet.parameters(), lr=0.001, betas=(0.92, 0.999))      # global optimizer
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
@@ -163,7 +162,6 @@ if __name__ == "__main__":
     res = []                    # record episode reward to plot
     while True:
         r = res_queue.get()
-        score = res_queue.get(global_ep_r.value)
         if r is not None:
             res.append(r)
         else:
@@ -171,7 +169,12 @@ if __name__ == "__main__":
 
 
     [w.join() for w in workers]
-    torch.save(gnet.state_dict(), "./save_model/a3c_cart.pt")
+
+    if global_ep_r.value >= 300:
+        print("Save model")
+        torch.save(gnet, "./save_model/a3c_cart.pt")
+    else:
+        print("Failed to train agent. Model was not saved")
     plotter()
     sys.exit()
 
