@@ -6,18 +6,16 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from utils import v_wrap, set_init
+from utils import v_wrap, set_init, plotter, handleArguments
 import torch.nn.functional as F
-import torch.multiprocessing as mp
 from shared_adam import SharedAdam
 import numpy as np
 import gym
+from datetime import datetime
 import sys
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
-import argparse
-import matplotlib.pyplot as plt
 import time
 
 GAMMA = 0.9
@@ -29,22 +27,6 @@ env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
 N_A = env.action_space.n
 
-
-def plotter():
-    plt.plot(res)
-    plt.ylabel('Score')
-    plt.xlabel('Episode')
-    plt.show()
-
-
-def handleArguments():
-    """Handles CLI arguments and saves them globally"""
-    parser = argparse.ArgumentParser(
-        description="Switch between modes in A2C or loading models from previous games")
-    parser.add_argument("--demo_mode", "-d", help="Renders the gym environment", action="store_true")
-    parser.add_argument("--load_model", "-l", help="Loads the model of previously gained training data", action="store_true")
-    global args
-    args = parser.parse_args()
 
 
 def push_and_pull(opt, gnet, done, s_, bs, ba, br, gamma):
@@ -122,9 +104,11 @@ class Net(nn.Module):
 
 
 if __name__ == "__main__":
-    handleArguments()
     # load global network
-    if args.load_model:
+    print ("Starting A2C Agent for Cartpole-v0")
+    time.sleep(3)
+    starttime = datetime.now()
+    if handleArguments().load_model:
         gnet = Net(N_S, N_A)
         gnet = torch.load("./save_model/a3c_cart.pt")
         gnet.eval()
@@ -145,7 +129,7 @@ if __name__ == "__main__":
         buffer_s, buffer_a, buffer_r = [], [], []
         ep_r = 0.
         while True:
-            if name == 'w00' and args.demo_mode:
+            if name == 'w00' and handleArguments().demo_mode:
                 env.render()
             a = gnet.choose_action(v_wrap(s[None, :]))
             s_, r, done, _ = env.step(a)
@@ -178,5 +162,10 @@ if __name__ == "__main__":
         torch.save(gnet, "./save_model/a3c_cart.pt")
     else:
         print("Failed to train agent. Model was not saved")
-    plotter()
+    endtime = datetime.now()
+    timedelta = endtime - starttime
+    print("Number of Episodes: ", global_ep, " | Finished within: ", timedelta)
+    plotter(scores, timedelta)
+
+
     sys.exit()

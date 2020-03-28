@@ -6,45 +6,27 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from utils import v_wrap, set_init, push_and_pull, record
+from utils import v_wrap, set_init, push_and_pull, record, plotter, handleArguments
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
 import numpy as np
 import gym
+import time
+from datetime import datetime
 import sys
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
-import argparse
-import matplotlib.pyplot as plt
-
 UPDATE_GLOBAL_ITER = 20
 GAMMA = 0.9
-MAX_EP = mp.cpu_count()*100
+MAX_EP = 5000
 
 
 
-env = gym.make('CartPole-v0')
+env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
 N_A = env.action_space.n
-
-
-def plotter():
-    plt.plot(res)
-    plt.ylabel('Average Reward')
-    plt.xlabel('Episode')
-    plt.show()
-
-
-def handleArguments():
-    """Handles CLI arguments and saves them globally"""
-    parser = argparse.ArgumentParser(
-        description="Switch between modes in A2C or loading models from previous games")
-    parser.add_argument("--demo_mode", "-d", help="Renders the gym environment", action="store_true")
-    parser.add_argument("--load_model", "-l", help="Loads the model of previously gained training data", action="store_true")
-    global args
-    args = parser.parse_args()
 
 
 class Net(nn.Module):
@@ -114,7 +96,7 @@ class Worker(mp.Process):
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             while True:
-                if self.name == 'w00' and args.demo_mode:
+                if self.name == 'w00' and handleArguments().demo_mode:
                     self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
                 s_, r, done, _ = self.env.step(a)
@@ -143,9 +125,11 @@ class Worker(mp.Process):
 
 
 if __name__ == "__main__":
-    handleArguments()
     # load global network
-    if args.load_model:
+    print("STARTING A3C AGENT FOR CARTPOLE-V0")
+    time.sleep(3)
+    starttime = datetime.now()
+    if handleArguments().load_model:
         gnet = Net(N_S, N_A)
         gnet = torch.load("./save_model/a3c_cart.pt")
         gnet.eval()
@@ -153,7 +137,7 @@ if __name__ == "__main__":
         gnet = Net(N_S, N_A)
 
     gnet.share_memory()         # share the global parameters in multiprocessing
-    opt = SharedAdam(gnet.parameters(), lr=0.001, betas=(0.92, 0.999))      # global optimizer
+    opt = SharedAdam(gnet.parameters(), lr=0.003, betas=(0.92, 0.999))      # global optimizer
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
@@ -170,12 +154,16 @@ if __name__ == "__main__":
 
     [w.join() for w in workers]
 
-    if global_ep_r.value >= 300:
+    if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300:
         print("Save model")
         torch.save(gnet, "./save_model/a3c_cart.pt")
     else:
         print("Failed to train agent. Model was not saved")
-    plotter()
+    endtime = datetime.now()
+    timedelta = endtime - starttime
+    print("Number of Episodes: ", global_ep.value, " | Finished within: ", timedelta)
+    plotter(res, timedelta)
+
     sys.exit()
 
 
