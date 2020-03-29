@@ -6,7 +6,7 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from utils import v_wrap, set_init, plotter, handleArguments
+from utils import v_wrap, set_init, plotter, handleArguments, optimize
 import torch.nn.functional as F
 from shared_adam import SharedAdam
 import numpy as np
@@ -27,32 +27,6 @@ env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
 N_A = env.action_space.n
 
-
-
-def push_and_pull(opt, gnet, done, s_, bs, ba, br, gamma):
-    if done:
-        v_s_ = 0.               # terminal
-    else:
-        v_s_ = gnet.forward(v_wrap(s_[None, :]))[-1].data.numpy()[0, 0]
-
-    buffer_v_target = []
-    for r in br[::-1]:    # reverse buffer r
-        v_s_ = r + gamma * v_s_
-        buffer_v_target.append(v_s_)
-    buffer_v_target.reverse()
-
-    loss = gnet.loss_func(
-        v_wrap(np.vstack(bs)),
-        v_wrap(np.array(ba), dtype=np.int64) if ba[0].dtype == np.int64 else v_wrap(np.vstack(ba)),
-        v_wrap(np.array(buffer_v_target)[:, None]))
-
-    # calculate local gradients and push local parameters to global
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
-
-    # pull global parameters
-    gnet.load_state_dict(gnet.state_dict())
 
 class Net(nn.Module):
     def __init__(self, s_dim, a_dim):
@@ -138,9 +112,10 @@ if __name__ == "__main__":
             buffer_a.append(a)
             buffer_s.append(s)
             buffer_r.append(r)
+
             if done or ep_r == 700:  # update network
                 # sync
-                push_and_pull(opt, gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
+                optimize(opt, gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                 buffer_s, buffer_a, buffer_r = [], [], []
 
                 global_ep += 1

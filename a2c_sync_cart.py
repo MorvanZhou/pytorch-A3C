@@ -19,41 +19,13 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
 
-
-UPDATE_GLOBAL_ITER = 20
+UPDATE_GLOBAL_ITER = 50
 GAMMA = 0.9
 MAX_EP = 5000
-
-
 
 env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
 N_A = env.action_space.n
-
-
-def optimize(opt, lnet, done, s_, bs, ba, br, gamma):
-    if done:
-        v_s_ = 0.               # terminal
-    else:
-        v_s_ = lnet.forward(v_wrap(s_[None, :]))[-1].data.numpy()[0, 0]
-
-    buffer_v_target = []
-    for r in br[::-1]:    # reverse buffer r
-        v_s_ = r + gamma * v_s_
-        buffer_v_target.append(v_s_)
-    buffer_v_target.reverse()
-
-    loss = lnet.loss_func(
-        v_wrap(np.vstack(bs)),
-        v_wrap(np.array(ba), dtype=np.int64) if ba[0].dtype == np.int64 else v_wrap(np.vstack(ba)),
-        v_wrap(np.array(buffer_v_target)[:, None]))
-
-    # calculate local gradients
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
-
-    #lnet.load_state_dict(lnet.state_dict())
 
 
 class Net(nn.Module):
@@ -133,26 +105,20 @@ class Worker(mp.Process):
                 buffer_s.append(s)
                 buffer_r.append(r)
 
-                if total_step % UPDATE_GLOBAL_ITER == 0 or done or ep_r == 700:  # update global and assign to local net
+                if done or ep_r == 700:  # update global and assign to local net
                     # sync
-                    if total_step % UPDATE_GLOBAL_ITER == 0 and self.g_ep != 0:
-                        time.sleep(1)
-                        push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
+                    push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
+                    time.sleep(2)
+
+                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
+                    scores.append(int(self.g_ep_r.value))
+                    if handleArguments().load_model:
+                        if np.mean(scores[-min(100, len(scores)):]) >= 500:
+                            stop_processes = True
                     else:
-                        optimize(self.opt, self.lnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-
-                    buffer_s, buffer_a, buffer_r = [], [], []
-
-                    if done or ep_r == 700:  # done and print information
-                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
-                        scores.append(int(self.g_ep_r.value))
-                        if handleArguments().load_model:
-                            if np.mean(scores[-min(100, len(scores)):]) >= 500:
-                                stop_processes = True
-                        else:
-                            if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 500:
-                                stop_processes = True
-                        break
+                        if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 500:
+                            stop_processes = True
+                    break
 
                 s = s_
                 total_step += 1
