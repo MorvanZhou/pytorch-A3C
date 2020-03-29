@@ -146,8 +146,12 @@ class Worker(mp.Process):
                     if done or ep_r == 700:  # done and print information
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
                         scores.append(int(self.g_ep_r.value))
-                        if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 500:
-                            stop_processes = True
+                        if handleArguments().load_model:
+                            if np.mean(scores[-min(100, len(scores)):]) >= 500:
+                                stop_processes = True
+                        else:
+                            if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 500:
+                                stop_processes = True
                         break
 
                 s = s_

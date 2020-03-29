@@ -151,8 +151,12 @@ if __name__ == "__main__":
                     global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
                 print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r)
                 scores.append(int(global_ep_r))
-                if np.mean(scores[-min(10, len(scores)):]) >= 500:
-                    stop_processes = True
+                if handleArguments().load_model:
+                    if np.mean(scores[-min(100, len(scores)):]) >= 500:
+                        stop_processes = True
+                else:
+                    if np.mean(scores[-min(10, len(scores)):]) >= 500:
+                        stop_processes = True
                 break
             s = s_
             total_step += 1
