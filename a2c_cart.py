@@ -158,6 +158,7 @@ if __name__ == "__main__":
                     if np.mean(scores[-min(10, len(scores)):]) >= 500:
                         stop_processes = True
                 break
+
             s = s_
             total_step += 1
 
