@@ -95,7 +95,7 @@ if __name__ == "__main__":
         else:
             gnet = Net(N_S, N_A)
 
-        opt = SharedAdam(gnet.parameters(), lr=0.003, betas=(0.92, 0.999))      # global optimizer
+        opt = SharedAdam(gnet.parameters(), lr=0.005, betas=(0.92, 0.999))      # global optimizer
 
         # Global variables for episodes
         durations = []
@@ -143,19 +143,21 @@ if __name__ == "__main__":
                     print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r, "| Duration:", round(duration, 5))
                     scores.append(int(global_ep_r))
                     if handleArguments().load_model:
-                        if np.mean(scores[-min(100, len(scores)):]) >= 500 and global_ep >= 100:
+                        if np.mean(scores[-min(100, len(scores)):]) >= 400 and global_ep >= 100:
                             stop_processes = True
                     else:
-                        if np.mean(scores[-min(10, len(scores)):]) >= 500 and global_ep >= 10:
+                        if np.mean(scores[-min(10, len(scores)):]) >= 400 and global_ep >= 10:
                             stop_processes = True
                     break
 
                 s = s_
                 total_step += 1
 
-        if np.mean(scores[-min(10, len(scores)):]) >= 300:
+        if np.mean(scores[-min(10, len(scores)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
             torch.save(gnet, "./save_model/a2c_cart_comb.pt")
+        elif handleArguments().load_model:
+            print ("Testing! No need to save model.")
         else:
             print("Failed to train agent. Model was not saved")
         endtime = datetime.now()
@@ -165,7 +167,10 @@ if __name__ == "__main__":
         timedelta_sum += timedelta/3
 
         # Get results for confidence intervall
-        confidence_intervall(actions)
+        if handleArguments().load_model:
+            confidence_intervall(actions, True)
+        else:
+            confidence_intervall(actions)
 
         # Plot results
         plotter_ep_time(ax1, durations)

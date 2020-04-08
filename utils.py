@@ -102,14 +102,14 @@ def plotter_ep_time(ax1, duration_episode):
     ax1.set_ylabel('Duration of Episode')
 
 
-def confidence_intervall(actions):
-    count = 0
+def confidence_intervall(actions, load_model = False):
+    count = 1
     probab_count = 0
     probabilities = []
     for a in actions:
         if a == 1:
             probab_count += 1
-        if count % 100 == 0 and count != 0:
+        if count % 100 == 0 and count != 1:
             probab_count = probab_count / 100
             probabilities.append(probab_count)
             probab_count = 0
@@ -118,12 +118,22 @@ def confidence_intervall(actions):
     # Check for probabilities of actions and create confidence intervall for two standard deviations
     print("Probabilities: ", probabilities)
 
-    stan_dev1 = np.sqrt(probabilities[1] * (1-probabilities[1]) / 100)*2
-    print ("First Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[1]-stan_dev1, 3), " and", round(probabilities[1] + stan_dev1, 3))
+    if load_model == True:
+        stan_dev1 = np.sqrt(probabilities[0] * (1 - probabilities[0]) / 100) * 2
+        print("First Confidence Intervall for 95% confidence: the action 'right' is chosen between",
+              round(probabilities[0] - stan_dev1, 3), " and", round(probabilities[0] + stan_dev1, 3))
 
-    stan_dev2 = np.sqrt(probabilities[2] * (1 - probabilities[2]) /100) * 2
-    print("Second Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[2] - stan_dev2, 3), " and",
-          round(probabilities[2] + stan_dev2, 3))
+    else:
+        stan_dev1 = np.sqrt(probabilities[1] * (1-probabilities[1]) / 100)*2
+        print ("First Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[1]-stan_dev1, 3), " and", round(probabilities[1] + stan_dev1, 3))
+
+        stan_dev2 = np.sqrt(probabilities[2] * (1 - probabilities[2]) /100) * 2
+        print("Second Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[2] - stan_dev2, 3), " and",
+              round(probabilities[2] + stan_dev2, 3))
+
+        stan_dev3 = np.sqrt(probabilities[3] * (1 - probabilities[3]) /100) * 2
+        print("Second Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[3] - stan_dev3, 3), " and",
+              round(probabilities[3] + stan_dev3, 3))
 
 
 def handleArguments():

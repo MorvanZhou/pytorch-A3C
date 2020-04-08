@@ -19,8 +19,6 @@ import sys
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
-
-UPDATE_GLOBAL_ITER = 50
 GAMMA = 0.9
 MAX_EP = 3000
 
@@ -34,21 +32,19 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.s_dim = s_dim
         self.a_dim = a_dim
-        self.pi1 = nn.Linear(s_dim, 24)
-        self.pi12 = nn.Linear(24, 48)
-        self.pi2 = nn.Linear(48, 24)
-        self.pi3 = nn.Linear(24, a_dim)
-        self.v2 = nn.Linear(48, 24)
-        self.v3 = nn.Linear(24, 1)
-        set_init([self.pi1, self.pi12, self.pi2, self.pi3, self.v2, self.v3])
+        self.pi1 = nn.Linear(s_dim, 48)
+        self.pi2 = nn.Linear(48, 48)
+        self.pi3 = nn.Linear(48, a_dim)
+        self.v2 = nn.Linear(48, 48)
+        self.v3 = nn.Linear(48, 1)
+        set_init([self.pi1, self.pi2, self.pi3, self.v2, self.v3])
         self.distribution = torch.distributions.Categorical
 
     def forward(self, x):
         pi1 = F.relu(self.pi1(x))
-        pi12 = F.relu(self.pi12(pi1))
-        pi2 = F.relu(self.pi2(pi12))
+        pi2 = F.relu(self.pi2(pi1))
         logits = self.pi3(pi2)
-        v2 = F.relu(self.v2(pi12))
+        v2 = F.relu(self.v2(pi1))
         values = self.v3(v2)
         return logits, values
 
@@ -111,17 +107,20 @@ class Worker(mp.Process):
                 if done or ep_r == 600:  # update global and assign to local net
                     # sync
                     push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                    time.sleep(0.2)
+
                     end = time.time()
-                    time_done = end - start - 0.2
+
+                    if not handleArguments().load_model:
+                        time.sleep(0.5)
+                    time_done = end - start
 
                     record(self.g_ep, self.g_ep_r, ep_r, self.res_queue,self.time_queue, time_done, a, self.action_queue, self.name)
                     scores.append(int(self.g_ep_r.value))
                     if handleArguments().load_model:
-                        if np.mean(scores[-min(100, len(scores)):]) >= 500 and self.g_ep.value >= 100:
+                        if np.mean(scores[-min(100, len(scores)):]) >= 400 and self.g_ep.value >= 100:
                             stop_processes = True
                     else:
-                        if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 500 and self.g_ep.value >= mp.cpu_count():
+                        if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 400 and self.g_ep.value >= mp.cpu_count():
                             stop_processes = True
                     break
 
@@ -151,7 +150,7 @@ if __name__ == "__main__":
             gnet = Net(N_S, N_A)
 
         gnet.share_memory()         # share the global parameters in multiprocessing
-        opt = SharedAdam(gnet.parameters(), lr=0.003, betas=(0.92, 0.999))      # global optimizer
+        opt = SharedAdam(gnet.parameters(), lr=0.005, betas=(0.92, 0.999))      # global optimizer
         global_ep, global_ep_r, res_queue, time_queue, action_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue(), mp.Queue(), mp.Queue()
 
         # parallel training
@@ -179,9 +178,11 @@ if __name__ == "__main__":
 
         [w.join() for w in workers]
 
-        if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300:
+        if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
             torch.save(gnet, "./save_model/a2c_sync_cart_comb.pt")
+        elif handleArguments().load_model:
+            print ("Testing! No need to save model.")
         else:
             print("Failed to train agent. Model was not saved")
         endtime = datetime.now()
@@ -191,7 +192,10 @@ if __name__ == "__main__":
         timedelta_sum += timedelta/3
 
         # Get results for confidence intervall
-        confidence_intervall(actions)
+        if handleArguments().load_model:
+            confidence_intervall(actions, True)
+        else:
+            confidence_intervall(actions)
 
         # Plot results
         plotter_ep_time(ax1, durations)
@@ -200,10 +204,10 @@ if __name__ == "__main__":
     font = {'family': 'serif',
             'color': 'darkred',
             'weight': 'normal',
-            'size': 10,
+            'size': 8,
             }
     plt.text(0, 650, f"Average Duration: {timedelta_sum}", fontdict=font)
-    plt.title("Synchronous A2C-Cartpole (shared NN)")
+    plt.title("Synchronous A2C-Cartpole (shared NN)", fontsize = 16)
     plt.show()
 
     sys.exit()

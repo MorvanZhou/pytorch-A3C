@@ -19,7 +19,7 @@ import sys
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
-UPDATE_GLOBAL_ITER = 20
+#UPDATE_GLOBAL_ITER = 20
 GAMMA = 0.9
 MAX_EP = 3000
 
@@ -108,30 +108,29 @@ class Worker(mp.Process):
                 buffer_s.append(s)
                 buffer_r.append(r)
 
-                if total_step % UPDATE_GLOBAL_ITER == 0 or done or ep_r == 600:  # update global and assign to local net
+                if done or ep_r == 600:  # update global and assign to local net
                     # sync
                     push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                    buffer_s, buffer_a, buffer_r = [], [], []
+                    end = time.time()
+                    time_done = end - start
 
-                    if done or ep_r == 700:  # done and print information
-                        end = time.time()
-                        time_done = end - start
-                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, a, self.action_queue, self.name)
-                        scores.append(int(self.g_ep_r.value))
-
-                        if handleArguments().load_model:
-                            if np.mean(scores[-min(100, len(scores)):]) >= 500 and self.g_ep.value >= 100:
-                                stop_processes = True
-                        else:
-                            if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 500 and self.g_ep.value >= mp.cpu_count():
-                                stop_processes = True
-                        break
+                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, a,
+                           self.action_queue, self.name)
+                    scores.append(int(self.g_ep_r.value))
+                    if handleArguments().load_model:
+                        if np.mean(scores[-min(100, len(scores)):]) >= 400 and self.g_ep.value >= 100:
+                            stop_processes = True
+                    else:
+                        if np.mean(scores[
+                                   -min(mp.cpu_count(), len(scores)):]) >= 400 and self.g_ep.value >= mp.cpu_count():
+                            stop_processes = True
+                    break
 
                 s = s_
                 total_step += 1
         self.time_queue.put(None)
         self.res_queue.put(None)
-
+        self.action_queue.put(None)
 
 if __name__ == "__main__":
     # load global network
@@ -170,7 +169,7 @@ if __name__ == "__main__":
         # record episode-reward and duration-episode to plot
         res = []
         durations = []
-        action = []
+        actions = []
         while True:
             r = res_queue.get()
             t = time_queue.get()
@@ -178,14 +177,16 @@ if __name__ == "__main__":
             if r is not None:
                 res.append(r)
                 durations.append(t)
-                action.append(a)
+                actions.append(a)
             else:
                 break
 
         [w.join() for w in workers]
-        if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300:
+        if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
             torch.save(gnet, "./save_model/a3c_cart.pt")
+        elif handleArguments().load_model:
+            print ("Testing! No need to save model.")
         else:
             print("Failed to train agent. Model was not saved")
 
@@ -195,8 +196,10 @@ if __name__ == "__main__":
         timedelta_sum += timedelta/3
 
         # Get results for confidence intervall
-        print(action)
-        confidence_intervall(action)
+        if handleArguments().load_model:
+            confidence_intervall(actions, True)
+        else:
+            confidence_intervall(actions)
 
         # Plot results after each run
         plotter_ep_time(ax1, durations)
