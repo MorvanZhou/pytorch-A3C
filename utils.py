@@ -74,7 +74,7 @@ def optimize(opt, lnet, done, s_, bs, ba, br, gamma):
     opt.step()
 
 
-def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, time_done, name):
+def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, time_done, a, action_queue, name):
     with global_ep.get_lock():
         global_ep.value += 1
     with global_ep_r.get_lock():
@@ -84,6 +84,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, time_done, name)
             global_ep_r.value = global_ep_r.value * 0.99 + ep_r * 0.01
     res_queue.put(global_ep_r.value)
     time_queue.put(time_done)
+    action_queue.put(a)
     print(name, "Ep:", global_ep.value, "| Ep_r: %.0f" % global_ep_r.value, "| Duration:", round(time_done, 5))
 
 

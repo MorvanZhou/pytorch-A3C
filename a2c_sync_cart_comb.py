@@ -98,7 +98,6 @@ class Worker(mp.Process):
                 if self.name == 'w00' and handleArguments().demo_mode:
                     self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
-                self.action_queue.put(a)
                 s_, r, done, _ = self.env.step(a)
                 if done: r = -1
                 ep_r += r
@@ -113,7 +112,7 @@ class Worker(mp.Process):
                     end = time.time()
                     time_done = end - start - 0.2
 
-                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue,self.time_queue, time_done, self.name)
+                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue,self.time_queue, time_done, a, self.action_queue, self.name)
                     scores.append(int(self.g_ep_r.value))
                     if handleArguments().load_model:
                         if np.mean(scores[-min(100, len(scores)):]) >= 500 and self.g_ep.value >= 100:

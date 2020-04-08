@@ -101,7 +101,6 @@ class Worker(mp.Process):
                 if self.name == 'w00' and handleArguments().demo_mode:
                     self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
-                self.action_queue.put(a)
                 s_, r, done, _ = self.env.step(a)
                 if done: r = -1
                 ep_r += r
@@ -117,8 +116,9 @@ class Worker(mp.Process):
                     if done or ep_r == 700:  # done and print information
                         end = time.time()
                         time_done = end - start
-                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, self.name)
+                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, a, self.action_queue, self.name)
                         scores.append(int(self.g_ep_r.value))
+
                         if handleArguments().load_model:
                             if np.mean(scores[-min(100, len(scores)):]) >= 500 and self.g_ep.value >= 100:
                                 stop_processes = True
@@ -131,7 +131,6 @@ class Worker(mp.Process):
                 total_step += 1
         self.time_queue.put(None)
         self.res_queue.put(None)
-        self.action_queue.put(None)
 
 
 if __name__ == "__main__":
@@ -171,7 +170,7 @@ if __name__ == "__main__":
         # record episode-reward and duration-episode to plot
         res = []
         durations = []
-        actions = []
+        action = []
         while True:
             r = res_queue.get()
             t = time_queue.get()
@@ -179,13 +178,11 @@ if __name__ == "__main__":
             if r is not None:
                 res.append(r)
                 durations.append(t)
-                actions.append(a)
+                action.append(a)
             else:
                 break
 
-        print("ok...")
         [w.join() for w in workers]
-        print( "passed it")
         if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300:
             print("Save model")
             torch.save(gnet, "./save_model/a3c_cart.pt")
@@ -198,7 +195,8 @@ if __name__ == "__main__":
         timedelta_sum += timedelta/3
 
         # Get results for confidence intervall
-        confidence_intervall(actions)
+        print(action)
+        confidence_intervall(action)
 
         # Plot results after each run
         plotter_ep_time(ax1, durations)
