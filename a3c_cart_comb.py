@@ -35,19 +35,21 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.s_dim = s_dim
         self.a_dim = a_dim
-        self.pi1 = nn.Linear(s_dim, 48)
+        self.pi1 = nn.Linear(s_dim, 24)
+        self.pi12 = nn.Linear(24, 48)
         self.pi2 = nn.Linear(48, 24)
         self.pi3 = nn.Linear(24, a_dim)
         self.v2 = nn.Linear(48, 24)
         self.v3 = nn.Linear(24, 1)
-        set_init([self.pi1, self.pi2, self.pi3, self.v2, self.v3])
+        set_init([self.pi1, self.pi12, self.pi2, self.pi3, self.v2, self.v3])
         self.distribution = torch.distributions.Categorical
 
     def forward(self, x):
         pi1 = F.relu(self.pi1(x))
-        pi2 = F.relu(self.pi2(pi1))
+        pi12 = F.relu(self.pi12(pi1))
+        pi2 = F.relu(self.pi2(pi12))
         logits = self.pi3(pi2)
-        v2 = F.relu(self.v2(pi1))
+        v2 = F.relu(self.v2(pi12))
         values = self.v3(v2)
         return logits, values
 
@@ -114,7 +116,7 @@ class Worker(mp.Process):
                     push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                     buffer_s, buffer_a, buffer_r = [], [], []
 
-                    if done or ep_r == 700:  # done and print information
+                    if done or ep_r == 600:  # done and print information
                         end = time.time()
                         time_done = end - start
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, a, self.action_queue, self.name)
@@ -159,7 +161,7 @@ if __name__ == "__main__":
         gnet.share_memory()
 
         # global optimizer
-        opt = SharedAdam(gnet.parameters(), lr=0.005, betas=(0.92, 0.999))
+        opt = SharedAdam(gnet.parameters(), lr=0.003, betas=(0.92, 0.999))
 
         global_ep, global_ep_r, res_queue, time_queue, action_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue(), mp.Queue(), mp.Queue()
 

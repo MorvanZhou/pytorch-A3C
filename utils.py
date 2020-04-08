@@ -90,6 +90,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, time_done, a, ac
 
 def plotter_ep_rew(ax2, scores):
     ax2.plot(scores)
+    ax2.axhline(y=200.00, color='r')
     ax2.set_ylim(0,700)
     ax2.set_ylabel('Reward per Episode')
     ax2.set_xlabel('Episode')
@@ -123,10 +124,6 @@ def confidence_intervall(actions):
     stan_dev2 = np.sqrt(probabilities[2] * (1 - probabilities[2]) /100) * 2
     print("Second Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[2] - stan_dev2, 3), " and",
           round(probabilities[2] + stan_dev2, 3))
-
-    stan_dev3 = np.sqrt(probabilities[3] * (1 - probabilities[3]) / 100) * 2
-    print("Second Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[3] - stan_dev3, 3), " and",
-          round(probabilities[3] + stan_dev3, 3))
 
 
 def handleArguments():
