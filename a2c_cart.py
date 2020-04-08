@@ -6,22 +6,20 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from utils import v_wrap, set_init, plotter, handleArguments, optimize
+from utils import v_wrap, set_init, plotter_ep_rew, handleArguments, optimize, plotter_ep_time, confidence_intervall
+import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from shared_adam import SharedAdam
 import numpy as np
 import gym
 from datetime import datetime
+import time
 import sys
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
-import time
-
 GAMMA = 0.9
-MAX_EP = 5000
-
-
+MAX_EP = 3000
 
 env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
@@ -81,71 +79,103 @@ if __name__ == "__main__":
     # load global network
     print ("Starting A2C Agent for Cartpole-v0")
     time.sleep(3)
-    starttime = datetime.now()
-    if handleArguments().load_model:
-        gnet = Net(N_S, N_A)
-        gnet = torch.load("./save_model/a3c_cart.pt")
-        gnet.eval()
-    else:
-        gnet = Net(N_S, N_A)
+    timedelta_sum = datetime.now()
+    timedelta_sum -= timedelta_sum
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    actions = []
+    # Reinitialize Agent to make 5 trials
+    for i in range(3):
+        starttime = datetime.now()
 
-    opt = SharedAdam(gnet.parameters(), lr=0.003, betas=(0.92, 0.999))      # global optimizer
-    global_ep, global_ep_r = 1, 0.
+        if handleArguments().load_model:
+            gnet = Net(N_S, N_A)
+            gnet = torch.load("./save_model/a3c_cart.pt")
+            gnet.eval()
+        else:
+            gnet = Net(N_S, N_A)
 
-    res = []  # record episode reward to plot
+        opt = SharedAdam(gnet.parameters(), lr=0.005, betas=(0.92, 0.999))      # global optimizer
 
-    name = 'w00'
-    total_step = 1
-    stop_processes = False
-    scores = []
-    while global_ep < MAX_EP and stop_processes is False:
-        s = env.reset()
-        buffer_s, buffer_a, buffer_r = [], [], []
-        ep_r = 0.
-        while True:
-            if name == 'w00' and handleArguments().demo_mode:
-                env.render()
-            a = gnet.choose_action(v_wrap(s[None, :]))
-            s_, r, done, _ = env.step(a)
-            if done: r = -1
-            ep_r += r
-            buffer_a.append(a)
-            buffer_s.append(s)
-            buffer_r.append(r)
+        # Global variables for episodes
+        durations = []
+        scores = []
+        global_ep, global_ep_r = 1, 0.
+        name = 'w00'
+        total_step = 1
+        stop_processes = False
 
-            if done or ep_r == 700:  # update network
-                # sync
-                optimize(opt, gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                buffer_s, buffer_a, buffer_r = [], [], []
+        while global_ep < MAX_EP and stop_processes is False:
+            s = env.reset()
+            buffer_s, buffer_a, buffer_r = [], [], []
+            ep_r = 0.
+            while True:
+                # Initialize stopwatch for average episode duration
+                start = time.time()
+                if name == 'w00' and handleArguments().demo_mode:
+                    env.render()
+                a = gnet.choose_action(v_wrap(s[None, :]))
+                actions.append(a)
+                s_, r, done, _ = env.step(a)
 
-                global_ep += 1
+                if done: r = -1
+                ep_r += r
+                buffer_a.append(a)
+                buffer_s.append(s)
+                buffer_r.append(r)
 
-                if global_ep_r == 0.:
-                    global_ep_r = ep_r
-                else:
-                    global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
-                print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r)
-                scores.append(int(global_ep_r))
-                if handleArguments().load_model:
-                    if np.mean(scores[-min(100, len(scores)):]) >= 500:
-                        stop_processes = True
-                else:
-                    if np.mean(scores[-min(10, len(scores)):]) >= 500:
-                        stop_processes = True
-                break
+                if done or ep_r == 600:  # update network
+                    # sync
+                    optimize(opt, gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
+                    buffer_s, buffer_a, buffer_r = [], [], []
 
-            s = s_
-            total_step += 1
+                    global_ep += 1
 
-    if np.mean(scores[-min(10, len(scores)):]) >= 300:
-        print("Save model")
-        torch.save(gnet, "./save_model/a3c_cart.pt")
-    else:
-        print("Failed to train agent. Model was not saved")
-    endtime = datetime.now()
-    timedelta = endtime - starttime
-    print("Number of Episodes: ", global_ep, " | Finished within: ", timedelta)
-    plotter(scores, timedelta)
+                    if global_ep_r == 0.:
+                        global_ep_r = ep_r
+                    else:
+                        global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
 
+                    end = time.time()
+                    duration = end - start
+                    durations.append(duration)
+
+                    print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r, "| Duration:", round(duration, 5))
+                    scores.append(int(global_ep_r))
+                    if handleArguments().load_model:
+                        if np.mean(scores[-min(100, len(scores)):]) >= 500 and global_ep >= 100:
+                            stop_processes = True
+                    else:
+                        if np.mean(scores[-min(10, len(scores)):]) >= 500 and global_ep >= 10:
+                            stop_processes = True
+                    break
+
+                s = s_
+                total_step += 1
+
+        if np.mean(scores[-min(10, len(scores)):]) >= 300:
+            print("Save model")
+            torch.save(gnet, "./save_model/a3c_cart.pt")
+        else:
+            print("Failed to train agent. Model was not saved")
+        endtime = datetime.now()
+        timedelta = endtime - starttime
+        print("Number of Episodes: ", global_ep, " | Finished within: ", timedelta)
+
+        timedelta_sum += timedelta/3
+
+        # Get results for confidence intervall
+        confidence_intervall(actions)
+
+        # Plot results
+        plotter_ep_time(ax1, durations)
+        plotter_ep_rew(ax2, scores)
+    font = {'family': 'serif',
+            'color': 'darkred',
+            'weight': 'normal',
+            'size': 8
+            }
+    plt.text(0, 650, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    plt.title("Vanilla A2C-Cartpole", fontsize = 16)
+    plt.show()
 
     sys.exit()

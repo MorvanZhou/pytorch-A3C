@@ -6,6 +6,7 @@ from torch import nn
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import pickle
 import argparse
 
 
@@ -73,7 +74,7 @@ def optimize(opt, lnet, done, s_, bs, ba, br, gamma):
     opt.step()
 
 
-def record(global_ep, global_ep_r, ep_r, res_queue, name):
+def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, time_done, name):
     with global_ep.get_lock():
         global_ep.value += 1
     with global_ep_r.get_lock():
@@ -82,21 +83,49 @@ def record(global_ep, global_ep_r, ep_r, res_queue, name):
         else:
             global_ep_r.value = global_ep_r.value * 0.99 + ep_r * 0.01
     res_queue.put(global_ep_r.value)
-    print(name, "Ep:", global_ep.value, "| Ep_r: %.0f" % global_ep_r.value)
+    time_queue.put(time_done)
+    print(name, "Ep:", global_ep.value, "| Ep_r: %.0f" % global_ep_r.value, "| Duration:", round(time_done, 5))
 
 
-def plotter(result, delta):
-    font = {'family': 'serif',
-            'color': 'darkred',
-            'weight': 'normal',
-            'size': 10,
-            }
-    plt.plot(result)
-    plt.text(0, 700, delta, fontdict=font)
-    plt.ylim(0,800)
-    plt.ylabel('Average Reward')
-    plt.xlabel('Episode')
-    plt.show()
+def plotter_ep_rew(ax2, scores):
+    ax2.plot(scores)
+    ax2.set_ylim(0,700)
+    ax2.set_ylabel('Reward per Episode')
+    ax2.set_xlabel('Episode')
+
+
+def plotter_ep_time(ax1, duration_episode):
+    ax1.plot(duration_episode)
+    ax1.set_ylim(0,0.04)
+    ax1.set_ylabel('Duration of Episode')
+
+
+def confidence_intervall(actions):
+    count = 0
+    probab_count = 0
+    probabilities = []
+    for a in actions:
+        if a == 1:
+            probab_count += 1
+        if count % 100 == 0 and count != 0:
+            probab_count = probab_count / 100
+            probabilities.append(probab_count)
+            probab_count = 0
+        count += 1
+
+    # Check for probabilities of actions and create confidence intervall for two standard deviations
+    print("Probabilities: ", probabilities)
+
+    stan_dev1 = np.sqrt(probabilities[1] * (1-probabilities[1]) / 100)*2
+    print ("First Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[1]-stan_dev1, 3), " and", round(probabilities[1] + stan_dev1, 3))
+
+    stan_dev2 = np.sqrt(probabilities[2] * (1 - probabilities[2]) /100) * 2
+    print("Second Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[2] - stan_dev2, 3), " and",
+          round(probabilities[2] + stan_dev2, 3))
+
+    stan_dev3 = np.sqrt(probabilities[3] * (1 - probabilities[3]) / 100) * 2
+    print("Second Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[3] - stan_dev3, 3), " and",
+          round(probabilities[3] + stan_dev3, 3))
 
 
 def handleArguments():

@@ -6,7 +6,8 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from utils import v_wrap, set_init, push_and_pull, record, plotter, handleArguments
+from utils import v_wrap, set_init, push_and_pull, record, plotter_ep_rew, handleArguments, plotter_ep_time, confidence_intervall
+import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
@@ -21,7 +22,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 UPDATE_GLOBAL_ITER = 50
 GAMMA = 0.9
-MAX_EP = 5000
+MAX_EP = 3000
 
 env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
@@ -78,10 +79,10 @@ class Net(nn.Module):
 
 
 class Worker(mp.Process):
-    def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, name):
+    def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, name):
         super(Worker, self).__init__()
         self.name = 'w%02i' % name
-        self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
+        self.g_ep, self.g_ep_r, self.res_queue, self.time_queue, self.action_queue = global_ep, global_ep_r, res_queue, time_queue, action_queue
         self.gnet, self.opt = gnet, opt
         self.lnet = Net(N_S, N_A)           # local network
         self.env = gym.make('CartPole-v0').unwrapped
@@ -95,9 +96,11 @@ class Worker(mp.Process):
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             while True:
+                start = time.time()
                 if self.name == 'w00' and handleArguments().demo_mode:
                     self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
+                self.action_queue.put(a)
                 s_, r, done, _ = self.env.step(a)
                 if done: r = -1
                 ep_r += r
@@ -105,69 +108,103 @@ class Worker(mp.Process):
                 buffer_s.append(s)
                 buffer_r.append(r)
 
-                if done or ep_r == 700:  # update global and assign to local net
+                if done or ep_r == 600:  # update global and assign to local net
                     # sync
                     push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                    time.sleep(2)
+                    time.sleep(0.2)
+                    end = time.time()
+                    time_done = end - start - 0.2
 
-                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name)
+                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue,self.time_queue, time_done, self.name)
                     scores.append(int(self.g_ep_r.value))
                     if handleArguments().load_model:
-                        if np.mean(scores[-min(100, len(scores)):]) >= 500:
+                        if np.mean(scores[-min(100, len(scores)):]) >= 500 and self.g_ep.value >= 100:
                             stop_processes = True
                     else:
-                        if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 500:
+                        if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 500 and self.g_ep.value >= mp.cpu_count():
                             stop_processes = True
                     break
 
                 s = s_
                 total_step += 1
         self.res_queue.put(None)
+        self.time_queue.put(None)
+        self.action_queue.put(None)
 
 
 if __name__ == "__main__":
     # load global network
     print("Starting Synchronous A2C Agent for Cartpole-v0")
     time.sleep(3)
-    starttime = datetime.now()
-    if handleArguments().load_model:
-        gnet = Net(N_S, N_A)
-        gnet = torch.load("./save_model/a2c_sync_cart.pt")
-        gnet.eval()
-    else:
-        gnet = Net(N_S, N_A)
+    timedelta_sum = datetime.now()
+    timedelta_sum -= timedelta_sum
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 
-    gnet.share_memory()         # share the global parameters in multiprocessing
-    opt = SharedAdam(gnet.parameters(), lr=0.003, betas=(0.92, 0.999))      # global optimizer
-    global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
-
-    # parallel training
-    if handleArguments().load_model:
-        workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(1)]
-        [w.start() for w in workers]
-    else:
-        workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(mp.cpu_count())]
-        [w.start() for w in workers]
-    res = []                    # record episode reward to plot
-    while True:
-        r = res_queue.get()
-        if r is not None:
-            res.append(r)
+    # Reinitialize Agent to make 5 trials
+    for i in range(3):
+        starttime = datetime.now()
+        if handleArguments().load_model:
+            gnet = Net(N_S, N_A)
+            gnet = torch.load("./save_model/a2c_sync_cart.pt")
+            gnet.eval()
         else:
-            break
+            gnet = Net(N_S, N_A)
 
-    [w.join() for w in workers]
+        gnet.share_memory()         # share the global parameters in multiprocessing
+        opt = SharedAdam(gnet.parameters(), lr=0.005, betas=(0.92, 0.999))      # global optimizer
+        global_ep, global_ep_r, res_queue, time_queue, action_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue(), mp.Queue(), mp.Queue()
 
-    if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300:
-        print("Save model")
-        torch.save(gnet, "./save_model/a2c_sync_cart.pt")
-    else:
-        print("Failed to train agent. Model was not saved")
-    endtime = datetime.now()
-    timedelta = endtime - starttime
-    print("Number of Episodes: ", global_ep.value, " | Finished within: ", timedelta)
-    plotter(res, timedelta)
+        # parallel training
+        if handleArguments().load_model:
+            workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in range(1)]
+            [w.start() for w in workers]
+        else:
+            workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in range(mp.cpu_count())]
+            [w.start() for w in workers]
+
+        # record episode-reward and episode-duration to plot
+        res = []
+        durations = []
+        actions = []
+        while True:
+            r = res_queue.get()
+            t = time_queue.get()
+            a = action_queue.get()
+            if r is not None:
+                res.append(r)
+                durations.append(t)
+                actions.append(a)
+            else:
+                break
+
+        [w.join() for w in workers]
+
+        if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300:
+            print("Save model")
+            torch.save(gnet, "./save_model/a2c_sync_cart.pt")
+        else:
+            print("Failed to train agent. Model was not saved")
+        endtime = datetime.now()
+        timedelta = endtime - starttime
+        print("Number of Episodes: ", global_ep.value, " | Finished within: ", timedelta)
+
+        timedelta_sum += timedelta/3
+
+        # Get results for confidence intervall
+        confidence_intervall(actions)
+
+        # Plot results
+        plotter_ep_time(ax1, durations)
+        plotter_ep_rew(ax2, res)
+
+    font = {'family': 'serif',
+            'color': 'darkred',
+            'weight': 'normal',
+            'size': 10,
+            }
+    plt.text(0, 650, f"Average Duration: {timedelta_sum}", fontdict=font)
+    plt.title("Synchronous A2C-Cartpole")
+    plt.show()
 
     sys.exit()
-
 
