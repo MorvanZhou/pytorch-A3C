@@ -24,7 +24,7 @@ MAX_EP = 30
 FLAGS = flags.FLAGS
 frame_repeat = 12
 resolution = (30, 45)
-default_config_file_path = "/home/juice100/pytorch-A3C/VIZDOOM/deadly_corridor.cfg"
+default_config_file_path = "//VIZDOOM/deadly_corridor.cfg"
 
 
 def initialize_vizdoom(config):
