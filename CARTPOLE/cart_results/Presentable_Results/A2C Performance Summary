@@ -1,0 +1,11 @@
+A2C Cartpole Performance:
+
+- Most stable algorithm with episode length of about 0.005 to 0.01 seconds
+- Confidence of 95% to have action "right" between 40% and 60% in average, tendency to right as 43%-63% up to 47%-67% also appeared
+- Test run performs stable above average reward of 500
+- Breaches stability threshold at about episode 300 to 600
+
+Shared NN:
+
+- Slighty weaker as clearing comes after 1500 episodes (doesn't always clear within 3000 episodes)
+- Breaches stability threshold after 500-1000 episodes
