@@ -92,18 +92,19 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, time_done, a, ac
 
 def plotter_ep_rew(ax2, scores):
     ax2.plot(scores)
-    ax2.axhline(y=200.00, color='r')
-    ax2.set_ylim(0,700)
+    #ax2.axhline(y=200.00, color='r')
+    ax2.set_ylim(-150,300)
     ax2.set_ylabel('Reward per Episode')
     ax2.set_xlabel('Episode')
 
 
 def plotter_ep_time(ax1, duration_episode):
     ax1.plot(duration_episode)
-    ax1.set_ylim(0,0.04)
+    ax1.set_ylim(0,10)
     ax1.set_ylabel('Duration of Episode')
 
 
+# TODO: check for reasonable count length and adjust
 def confidence_intervall(actions, load_model = False):
     count = 1
     probab_count = 0

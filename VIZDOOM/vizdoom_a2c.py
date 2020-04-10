@@ -1,8 +1,9 @@
-
 import itertools
 import numpy as np
 from skimage.transform import resize
 import time
+from datetime import datetime
+import matplotlib.pyplot as plt
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -25,7 +26,10 @@ config_file_path = "deadly_corridor.cfg"
 def initialize_vizdoom(config):
     game = DoomGame()
     game.load_config(config)
-    game.set_window_visible(True)
+    if handleArguments().demo_mode:
+        game.set_window_visible(True)
+    else:
+        game.set_window_visible(False)
     game.set_mode(Mode.PLAYER)
     game.set_screen_format(ScreenFormat.GRAY8)
     game.set_screen_resolution(ScreenResolution.RES_640X480)
@@ -38,6 +42,18 @@ def preprocess(img):
 
 def game_state(game):
     return preprocess(game.get_state().screen_buffer)
+
+
+game = initialize_vizdoom(config_file_path)
+statesize = (game_state(game).shape[0])
+state = game_state(game)
+n = game.get_available_buttons_size()
+actions = [list(a) for a in itertools.product([0, 1], repeat=n)]
+
+print("Current State:" , state, "\n")
+print("Statesize:" , statesize, "\n")
+print ("Action Size: ", n)
+print("All possible Actions:", actions, "\n", "Total: ", len(actions))
 
 
 class Net(nn.Module):
@@ -111,63 +127,123 @@ class Net(nn.Module):
 
 if __name__ == '__main__':
 
-    game = initialize_vizdoom(config_file_path)
-    statesize = (game_state(game).shape[0])
-    state=game_state(game)
-    print("Current State:" , state, "\n")
-    print("Statesize:" , statesize, "\n")
-    n = game.get_available_buttons_size()
-    print ("Action Size: ", n)
-    actions = [list(a) for a in itertools.product([0, 1], repeat=n)]
-    print("All possible Actions:", actions, "\n", "Total: ", len(actions))
+    print ("Starting A2C Agent for Vizdoom-DeadlyCorridor")
+    time.sleep(3)
 
+    timedelta_sum = datetime.now()
+    timedelta_sum -= timedelta_sum
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    action = []
 
-    model = Net(len(actions))
-    opt = SharedAdam(model.parameters(), lr=0.005, betas=(0.92, 0.999))  # global optimizer
+    for i in range(3):
+        starttime = datetime.now()
 
-    global_ep, global_ep_r = 1, 0.
-    total_step = 1
+        # load global network
+        if handleArguments().load_model:
+            model = Net(len(actions))
+            model = torch.load("./doom_save_model/a2c_doom.pt")
+            model.eval()
+        else:
+            model = Net(len(actions))
 
-    while global_ep < MAX_EP:
-        game.new_episode()
-        buffer_s, buffer_a, buffer_r = [], [], []
-        ep_r = 0.
-        while True:
+        opt = SharedAdam(model.parameters(), lr=0.005, betas=(0.92, 0.999))  # global optimizer
 
-            done = False
-            a = model.choose_action(state)
-            actions.append(a)
+        # Global variables for episodes
+        durations = []
+        scores = []
+        global_ep, global_ep_r = 1, 0.
+        name = 'w00'
+        total_step = 1
+        stop_processes = False
 
-            r = game.make_action(actions[a], frame_repeat)
+        while global_ep < MAX_EP:
+            game.new_episode()
+            buffer_s, buffer_a, buffer_r = [], [], []
+            ep_r = 0.
+            while True:
+                # Initialize stopwatch for average episode duration
+                start = time.time()
+                done = False
 
-            if game.is_episode_finished():
-                done = True
-            else:
-                s_ = game_state(game)
+                a = model.choose_action(state)
+                action.append(a)
+                r = game.make_action(actions[a], frame_repeat)
 
-            ep_r += r
-            buffer_a.append(a)
-            buffer_s.append(state)
-            buffer_r.append(r)
-
-            if done or ep_r == 600:  # update network
-                # sync
-                optimize(opt, model, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                game.get_total_reward()
-                buffer_s, buffer_a, buffer_r = [], [], []
-
-                global_ep += 1
-
-                if global_ep_r == 0.:
-                    global_ep_r = ep_r
+                if game.is_episode_finished():
+                    done = True
                 else:
-                    global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
+                    s_ = game_state(game)
 
-                print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r)
-                break
+                ep_r += r
+                buffer_a.append(a)
+                buffer_s.append(state)
+                buffer_r.append(r)
 
-            s = s_
-            total_step += 1
+                if done or ep_r == 50:  # update network
+                    # sync
+                    optimize(opt, model, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
+                    print("Acion_array:", action)
+                    game.get_total_reward()
+                    buffer_s, buffer_a, buffer_r = [], [], []
+
+                    global_ep += 1
+                    if global_ep_r == 0.:
+                        global_ep_r = ep_r
+                    else:
+                        global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
+
+                    end = time.time()
+                    duration = end - start
+                    durations.append(duration)
+
+                    print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r, "| Duration:", round(duration, 5))
+                    scores.append(int(global_ep_r))
+
+                    # TODO: check for reasonable reward and adjust
+                    if handleArguments().load_model:
+                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and global_ep >= 10:
+                            stop_processes = True
+                    else:
+                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and global_ep >= 10:
+                            stop_processes = True
+                    break
+
+                s = s_
+                total_step += 1
+
+
+        # TODO: check for reasonable reward and adjust
+        if np.mean(scores[-min(10, len(scores)):]) >= 0 and not handleArguments().load_model and global_ep >= 10:
+            print("Save model")
+            torch.save(model, "./doom_save_model/a2c_doom.pt")
+        elif handleArguments().load_model:
+            print ("Testing! No need to save model.")
+        else:
+            print("Failed to train agent. Model was not saved")
+
+        endtime = datetime.now()
+        timedelta = endtime - starttime
+        print("Number of Episodes: ", global_ep, " | Finished within: ", timedelta)
+        timedelta_sum += timedelta/3
+
+        # Get results for confidence intervall
+        #if handleArguments().load_model:
+         #   confidence_intervall(action, True)
+        #else:
+         #   confidence_intervall(action)
+
+        # Plot results
+        plotter_ep_time(ax1, durations)
+        plotter_ep_rew(ax2, scores)
+
+    font = {'family': 'serif',
+            'color': 'darkred',
+            'weight': 'normal',
+            'size': 8
+            }
+    plt.text(0, 250, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    plt.title("Vanilla A2C-Vizdoom", fontsize = 16)
+    plt.show()
 
     game.close()
 
