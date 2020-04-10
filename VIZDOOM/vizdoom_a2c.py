@@ -17,7 +17,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 
 GAMMA = 0.9
-MAX_EP = 30
+MAX_EP = 100
 frame_repeat = 12
 resolution = (30, 45)
 config_file_path = "deadly_corridor.cfg"
@@ -146,7 +146,7 @@ if __name__ == '__main__':
         else:
             model = Net(len(actions))
 
-        opt = SharedAdam(model.parameters(), lr=0.005, betas=(0.92, 0.999))  # global optimizer
+        opt = SharedAdam(model.parameters(), lr=0.001, betas=(0.92, 0.999))  # global optimizer
 
         # Global variables for episodes
         durations = []
@@ -182,8 +182,8 @@ if __name__ == '__main__':
                 if done or ep_r == 50:  # update network
                     # sync
                     optimize(opt, model, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                    print("Acion_array:", action)
-                    game.get_total_reward()
+                    #print("Acion_array:", action)
+                    print("Total Reward:", game.get_total_reward())
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     global_ep += 1

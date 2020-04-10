@@ -2,6 +2,8 @@ import itertools
 import numpy as np
 from skimage.transform import resize
 import time
+from datetime import datetime
+import matplotlib.pyplot as plt
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -46,6 +48,11 @@ state = game_state(game)
 n = game.get_available_buttons_size()
 actions = [list(a) for a in itertools.product([0, 1], repeat=n)]
 
+print("Current State:", state, "\n")
+print("Statesize:", statesize, "\n")
+
+print("Action Size: ", n)
+print("All possible Actions:", actions, "\n", "Total: ", len(actions))
 
 class Net(nn.Module):
     def __init__(self, a_dim):
@@ -157,18 +164,19 @@ class Worker(mp.Process):
                     push_and_pull(opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                     time.sleep(10)
                     game.get_total_reward()
-                    buffer_s, buffer_a, buffer_r = [], [], []
+                    #buffer_s, buffer_a, buffer_r = [], [], []
                     end = time.time()
                     time_done = end - start
                     record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, a,
                            self.action_queue, self.name)
                     scores.append(int(self.g_ep_r.value))
+
+                    # TODO: check for reasonable reward and adjust
                     if handleArguments().load_model:
-                        if np.mean(scores[-min(100, len(scores)):]) >= 400 and self.g_ep.value >= 100:
+                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and self.g_ep.value >= 10:
                             stop_processes = True
                     else:
-                        if np.mean(scores[
-                                   -min(mp.cpu_count(), len(scores)):]) >= 400 and self.g_ep.value >= mp.cpu_count():
+                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and self.g_ep.value >= 10:
                             stop_processes = True
                     break
 
@@ -181,43 +189,87 @@ class Worker(mp.Process):
 
 
 if __name__ == '__main__':
-    print("Current State:", state, "\n")
-    print("Statesize:", statesize, "\n")
 
-    print("Action Size: ", n)
-    print("All possible Actions:", actions, "\n", "Total: ", len(actions))
+    print ("Starting A3C Agent for Vizdoom-DeadlyCorridor")
+    time.sleep(3)
 
-    model = Net(len(actions))
-
-    opt = SharedAdam(model.parameters(), lr=0.005, betas=(0.92, 0.999))  # global optimizer
-
-    global_ep, global_ep_r, res_queue, time_queue, action_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue(), mp.Queue(), mp.Queue()
-
-    # parallel training
-    if handleArguments().load_model:
-        workers = [Worker(model, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in range(1)]
-        [w.start() for w in workers]
-    else:
-        workers = [Worker(model, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in
-                   range(mp.cpu_count())]
-        [w.start() for w in workers]
-
-    # record episode-reward and duration-episode to plot
-    res = []
-    durations = []
+    timedelta_sum = datetime.now()
+    timedelta_sum -= timedelta_sum
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
     action = []
-    while True:
-        r = res_queue.get()
-        t = time_queue.get()
-        a = action_queue.get()
-        if r is not None:
-            res.append(r)
-            durations.append(t)
-            action.append(a)
-        else:
-            break
 
-    [w.join() for w in workers]
+    for i in range (3):
+        starttime = datetime.now()
+
+        # load global network
+        if handleArguments().load_model:
+            model = Net(len(actions))
+            model = torch.load("./doom_save_model/a3c_doom.pt")
+            model.eval()
+        else:
+            model = Net(len(actions))
+        opt = SharedAdam(model.parameters(), lr=0.001, betas=(0.92, 0.999))  # global optimizer
+
+        global_ep, global_ep_r, res_queue, time_queue, action_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue(), mp.Queue(), mp.Queue()
+
+        # parallel training
+        if handleArguments().load_model:
+            workers = [Worker(model, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in range(1)]
+            [w.start() for w in workers]
+        else:
+            workers = [Worker(model, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in
+                       range(mp.cpu_count())]
+            [w.start() for w in workers]
+
+        # record episode-reward and duration-episode to plot
+        res = []
+        durations = []
+        action = []
+        while True:
+            r = res_queue.get()
+            t = time_queue.get()
+            a = action_queue.get()
+            if r is not None:
+                res.append(r)
+                durations.append(t)
+                action.append(a)
+            else:
+                break
+
+        [w.join() for w in workers]
+
+        # TODO: check for reasonable reward and adjust
+        if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
+            print("Save model")
+            torch.save(model, "./doom_save_model/a2c_doom.pt")
+        elif handleArguments().load_model:
+            print("Testing! No need to save model.")
+        else:
+            print("Failed to train agent. Model was not saved")
+
+        endtime = datetime.now()
+        timedelta = endtime - starttime
+        print("Number of Episodes: ", global_ep, " | Finished within: ", timedelta)
+        timedelta_sum += timedelta / 3
+
+        # Get results for confidence intervall
+        # if handleArguments().load_model:
+        #   confidence_intervall(action, True)
+        # else:
+        #   confidence_intervall(action)
+
+        # Plot results
+        plotter_ep_time(ax1, durations)
+        plotter_ep_rew(ax2, res)
+
+    font = {'family': 'serif',
+            'color': 'darkred',
+            'weight': 'normal',
+            'size': 8
+            }
+    plt.text(0, 250, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    plt.title("A3C-Vizdoom", fontsize=16)
+    plt.show()
 
     game.close()
     sys.exit()
