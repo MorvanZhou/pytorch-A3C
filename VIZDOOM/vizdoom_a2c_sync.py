@@ -140,6 +140,7 @@ class Worker(mp.Process):
 
         while self.g_ep.value < MAX_EP and stop_processes is False:
             self.game.new_episode()
+            state = game_state(game)
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             while True:
@@ -180,7 +181,7 @@ class Worker(mp.Process):
                             stop_processes = True
                     break
 
-                s = s_
+                state = s_
                 total_step += 1
 
         self.time_queue.put(None)
@@ -249,7 +250,7 @@ if __name__ == '__main__':
 
         endtime = datetime.now()
         timedelta = endtime - starttime
-        print("Number of Episodes: ", global_ep, " | Finished within: ", timedelta)
+        print("Number of Episodes: ", global_ep.value, " | Finished within: ", timedelta)
         timedelta_sum += timedelta / 3
 
         # Get results for confidence intervall

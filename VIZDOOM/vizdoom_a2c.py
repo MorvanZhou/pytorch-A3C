@@ -17,7 +17,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 
 GAMMA = 0.9
-MAX_EP = 100
+MAX_EP = 3000
 frame_repeat = 12
 resolution = (30, 45)
 config_file_path = "deadly_corridor.cfg"
@@ -208,7 +208,7 @@ if __name__ == '__main__':
                             stop_processes = True
                     break
 
-                s = s_
+                state = s_
                 total_step += 1
 
 

@@ -19,7 +19,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 
 GAMMA = 0.9
-MAX_EP = 30
+MAX_EP = 3000
 frame_repeat = 12
 resolution = (30, 45)
 config_file_path = "deadly_corridor.cfg"
@@ -140,6 +140,7 @@ class Worker(mp.Process):
 
         while self.g_ep.value < MAX_EP and stop_processes is False:
             self.game.new_episode()
+            state = game_state(self.game)
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             while True:
@@ -179,7 +180,7 @@ class Worker(mp.Process):
                             stop_processes = True
                     break
 
-                s = s_
+                state = s_
                 total_step += 1
 
         self.time_queue.put(None)
@@ -207,8 +208,9 @@ if __name__ == '__main__':
             model.eval()
         else:
             model = Net(len(actions))
-        opt = SharedAdam(model.parameters(), lr=0.001, betas=(0.92, 0.999))  # global optimizer
 
+        # global optimizer
+        opt = SharedAdam(model.parameters(), lr=0.001, betas=(0.92, 0.999))
         global_ep, global_ep_r, res_queue, time_queue, action_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue(), mp.Queue(), mp.Queue()
 
         # parallel training
@@ -248,7 +250,7 @@ if __name__ == '__main__':
 
         endtime = datetime.now()
         timedelta = endtime - starttime
-        print("Number of Episodes: ", global_ep, " | Finished within: ", timedelta)
+        print("Number of Episodes: ", global_ep.value, " | Finished within: ", timedelta)
         timedelta_sum += timedelta / 3
 
         # Get results for confidence intervall
