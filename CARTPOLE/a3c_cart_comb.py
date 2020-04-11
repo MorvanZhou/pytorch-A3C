@@ -6,7 +6,7 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from utils import v_wrap, set_init, push_and_pull, record, plotter_ep_rew, handleArguments, plotter_ep_time, confidence_intervall
+from cart_utils import v_wrap, set_init, push_and_pull, record, plotter_ep_rew, handleArguments, plotter_ep_time, confidence_intervall
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import torch.multiprocessing as mp
@@ -111,7 +111,7 @@ class Worker(mp.Process):
 
                 if total_step % UPDATE_GLOBAL_ITER == 0 or done or ep_r == 600:  # update global and assign to local net
                     # sync
-                    push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
+                    push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA, False, self.g_ep)
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done or ep_r == 600:  # done and print information
@@ -146,7 +146,7 @@ if __name__ == "__main__":
         starttime = datetime.now()
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
-            gnet = torch.load("./save_model/a3c_cart_comb.pt")
+            gnet = torch.load("./cart_save_model/a3c_cart_comb.pt")
             gnet.eval()
         else:
             gnet = Net(N_S, N_A)
@@ -186,7 +186,7 @@ if __name__ == "__main__":
 
         if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
-            torch.save(gnet, "./save_model/a3c_cart_comb.pt")
+            torch.save(gnet, "./cart_save_model/a3c_cart_comb.pt")
         elif handleArguments().load_model:
             print ("Testing! No need to save model.")
         else:

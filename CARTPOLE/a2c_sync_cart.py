@@ -1,12 +1,12 @@
 """
-Reinforcement Learning (A3C) using Pytroch + multiprocessing.
+Reinforcement Learning (A2C-Sync) using Pytroch + multiprocessing.
 The most simple implementation for continuous action.
 
 """
 
 import torch
 import torch.nn as nn
-from utils import v_wrap, set_init, push_and_pull, record, plotter_ep_rew, handleArguments, plotter_ep_time, confidence_intervall
+from cart_utils import v_wrap, set_init, push_and_pull, record, plotter_ep_rew, handleArguments, plotter_ep_time, confidence_intervall
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import torch.multiprocessing as mp
@@ -108,13 +108,13 @@ class Worker(mp.Process):
 
                 if done or ep_r == 600:  # update global and assign to local net
                     # sync
-                    push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-
                     end = time.time()
+                    time_done = end - start
+
+                    push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA, True, self.g_ep)
 
                     if not handleArguments().load_model:
                         time.sleep(0.5)
-                    time_done = end - start
 
                     record(self.g_ep, self.g_ep_r, ep_r, self.res_queue,self.time_queue, time_done, a, self.action_queue, self.name)
                     scores.append(int(self.g_ep_r.value))
@@ -146,7 +146,7 @@ if __name__ == "__main__":
         starttime = datetime.now()
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
-            gnet = torch.load("./save_model/a2c_sync_cart.pt")
+            gnet = torch.load("./cart_save_model/a2c_sync_cart.pt")
             gnet.eval()
         else:
             gnet = Net(N_S, N_A)
@@ -182,7 +182,7 @@ if __name__ == "__main__":
 
         if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
-            torch.save(gnet, "./save_model/a2c_sync_cart.pt")
+            torch.save(gnet, "./cart_save_model/a2c_sync_cart.pt")
         elif handleArguments().load_model:
             print ("Testing! No need to save model.")
         else:

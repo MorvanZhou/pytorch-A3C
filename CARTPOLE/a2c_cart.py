@@ -6,7 +6,7 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from utils import v_wrap, set_init, plotter_ep_rew, handleArguments, optimize, plotter_ep_time, confidence_intervall
+from cart_utils import v_wrap, set_init, plotter_ep_rew, handleArguments, optimize, plotter_ep_time, confidence_intervall
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from shared_adam import SharedAdam
@@ -78,7 +78,7 @@ class Net(nn.Module):
 
 
 if __name__ == "__main__":
-    # load global network
+
     print ("Starting A2C Agent for Cartpole-v0")
     time.sleep(3)
     timedelta_sum = datetime.now()
@@ -89,9 +89,10 @@ if __name__ == "__main__":
     for i in range(3):
         starttime = datetime.now()
 
+        # load global network
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
-            gnet = torch.load("./save_model/a3c_cart.pt")
+            gnet = torch.load("./cart_save_model/a2c_cart.pt")
             gnet.eval()
         else:
             gnet = Net(N_S, N_A)
@@ -156,7 +157,7 @@ if __name__ == "__main__":
 
         if np.mean(scores[-min(10, len(scores)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
-            torch.save(gnet, "./save_model/a2c_cart.pt")
+            torch.save(gnet, "./cart_save_model/a2c_cart.pt")
         elif handleArguments().load_model:
             print ("Testing! No need to save model.")
         else:

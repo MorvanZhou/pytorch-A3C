@@ -4,6 +4,8 @@ Functions that use multiple times
 
 from torch import nn
 import torch
+import torch.multiprocessing as mp
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
@@ -22,7 +24,7 @@ def set_init(layers):
         nn.init.constant_(layer.bias, 0.)
 
 
-def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma):
+def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma, synchronous, global_ep):
     if done:
         v_s_ = 0.               # terminal
     else:
@@ -46,8 +48,15 @@ def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma):
         gp._grad = lp.grad
     opt.step()
 
-    # pull global parameters
-    lnet.load_state_dict(gnet.state_dict())
+    if synchronous and not handleArguments().load_model:
+        # Pending for remaining agents to finish
+        while True:
+            if global_ep.value % mp.cpu_count() == 0:
+                lnet.load_state_dict(gnet.state_dict())
+                break
+    else:
+        # pull global parameters
+        lnet.load_state_dict(gnet.state_dict())
 
 
 def optimize(opt, lnet, done, s_, bs, ba, br, gamma):
