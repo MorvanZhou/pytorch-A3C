@@ -26,8 +26,7 @@ def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma):
     if done:
         v_s_ = 0.               # terminal
     else:
-        v_s_ = lnet.forward(v_wrap(s_[None, :]))[-1].data.numpy()[0, 0]
-
+        v_s_ = lnet.forward(s_)[1].data.numpy()[0, 0]
 
     buffer_v_target = []
     for r in br[::-1]:    # reverse buffer r

@@ -17,12 +17,13 @@ import sys
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
-
+UPDATE_GLOBAL_ITER = 5
 GAMMA = 0.9
-MAX_EP = 3000
+MAX_EP = 10
 frame_repeat = 12
 resolution = (30, 45)
-config_file_path = "deadly_corridor.cfg"
+config_file_path = "VIZDOOM/deadly_corridor.cfg"
+worker_num = int(mp.cpu_count()/3)     # Number of reincarnations for Agent
 
 
 def initialize_vizdoom(config):
@@ -53,6 +54,7 @@ print("Statesize:", statesize, "\n")
 
 print("Action Size: ", n)
 print("All possible Actions:", actions, "\n", "Total: ", len(actions))
+print("Number of used CPUs: ", worker_num)
 
 class Net(nn.Module):
     def __init__(self, a_dim):
@@ -160,25 +162,27 @@ class Worker(mp.Process):
                 buffer_s.append(state)
                 buffer_r.append(r)
 
-                if done or ep_r == 600:  # update network
+                if done or total_step % UPDATE_GLOBAL_ITER == 0:  # update network
                     # sync
                     push_and_pull(opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                     game.get_total_reward()
-                    #buffer_s, buffer_a, buffer_r = [], [], []
-                    end = time.time()
-                    time_done = end - start
-                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, a,
-                           self.action_queue, self.name)
-                    scores.append(int(self.g_ep_r.value))
+                    buffer_s, buffer_a, buffer_r = [], [], []
 
-                    # TODO: check for reasonable reward and adjust
-                    if handleArguments().load_model:
-                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and self.g_ep.value >= 10:
-                            stop_processes = True
-                    else:
-                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and self.g_ep.value >= 10:
-                            stop_processes = True
-                    break
+                    if done:
+                        end = time.time()
+                        time_done = end - start
+                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, a,
+                               self.action_queue, self.name)
+                        scores.append(int(self.g_ep_r.value))
+
+                        # TODO: check for reasonable reward and adjust
+                        if handleArguments().load_model:
+                            if np.mean(scores[-min(10, len(scores)):]) >= 10 and self.g_ep.value >= 10:
+                                stop_processes = True
+                        else:
+                            if np.mean(scores[-min(10, len(scores)):]) >= 10 and self.g_ep.value >= 10:
+                                stop_processes = True
+                        break
 
                 state = s_
                 total_step += 1
@@ -204,7 +208,7 @@ if __name__ == '__main__':
         # load global network
         if handleArguments().load_model:
             model = Net(len(actions))
-            model = torch.load("./doom_save_model/a3c_doom.pt")
+            model = torch.load("./VIZDOOM/doom_save_model/a3c_doom.pt")
             model.eval()
         else:
             model = Net(len(actions))
@@ -219,7 +223,7 @@ if __name__ == '__main__':
             [w.start() for w in workers]
         else:
             workers = [Worker(model, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in
-                       range(mp.cpu_count())]
+                       range(worker_num)]
             [w.start() for w in workers]
 
         # record episode-reward and duration-episode to plot
@@ -240,13 +244,13 @@ if __name__ == '__main__':
         [w.join() for w in workers]
 
         # TODO: check for reasonable reward and adjust
-        if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
-            print("Save model")
-            torch.save(model, "./doom_save_model/a2c_doom.pt")
-        elif handleArguments().load_model:
-            print("Testing! No need to save model.")
-        else:
-            print("Failed to train agent. Model was not saved")
+        #if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
+        print("Save model")
+        torch.save(model, "./VIZDOOM/doom_save_model/a2c_doom.pt")
+        #elif handleArguments().load_model:
+         #   print("Testing! No need to save model.")
+        #else:
+         #   print("Failed to train agent. Model was not saved")
 
         endtime = datetime.now()
         timedelta = endtime - starttime
