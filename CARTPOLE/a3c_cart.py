@@ -108,7 +108,7 @@ class Worker(mp.Process):
                 buffer_s.append(s)
                 buffer_r.append(r)
 
-                if done or ep_r == 600:  # update global and assign to local net
+                if done or ep_r >= 400:  # update global and assign to local net
                     # sync
                     push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA, False, self.g_ep)
                     end = time.time()
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         starttime = datetime.now()
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
-            gnet = torch.load("./cart_save_model/a3c_cart.pt")
+            gnet = torch.load("./CARTPOLE/cart_save_model/a3c_cart.pt")
             gnet.eval()
         else:
             gnet = Net(N_S, N_A)
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         [w.join() for w in workers]
         if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
-            torch.save(gnet, "./cart_save_model/a3c_cart.pt")
+            torch.save(gnet, "./CARTPOLE/cart_save_model/a3c_cart.pt")
         elif handleArguments().load_model:
             print ("Testing! No need to save model.")
         else:
@@ -211,7 +211,7 @@ if __name__ == "__main__":
             'weight': 'normal',
             'size': 8,
             }
-    plt.text(0, 650, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("A3C-Cartpole")
     plt.show()
 

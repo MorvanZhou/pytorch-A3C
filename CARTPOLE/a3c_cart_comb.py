@@ -19,7 +19,6 @@ import sys
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
-UPDATE_GLOBAL_ITER = 20
 GAMMA = 0.9
 MAX_EP = 3000
 
@@ -109,23 +108,21 @@ class Worker(mp.Process):
                 buffer_r.append(r)
 
 
-                if total_step % UPDATE_GLOBAL_ITER == 0 or done or ep_r == 600:  # update global and assign to local net
+                if done or ep_r >= 400:  # update global and assign to local net
                     # sync
                     push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA, False, self.g_ep)
-                    buffer_s, buffer_a, buffer_r = [], [], []
 
-                    if done or ep_r == 600:  # done and print information
-                        end = time.time()
-                        time_done = end - start
-                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, a, self.action_queue, self.name)
-                        scores.append(int(self.g_ep_r.value))
-                        if handleArguments().load_model:
-                            if np.mean(scores[-min(100, len(scores)):]) >= 400 and self.g_ep.value >= 100:
-                                stop_processes = True
-                        else:
-                            if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 400 and self.g_ep.value >= mp.cpu_count():
-                                stop_processes = True
-                        break
+                    end = time.time()
+                    time_done = end - start
+                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, a, self.action_queue, self.name)
+                    scores.append(int(self.g_ep_r.value))
+                    if handleArguments().load_model:
+                        if np.mean(scores[-min(100, len(scores)):]) >= 400 and self.g_ep.value >= 100:
+                            stop_processes = True
+                    else:
+                        if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 400 and self.g_ep.value >= mp.cpu_count():
+                            stop_processes = True
+                    break
                 s = s_
                 total_step += 1
         self.time_queue.put(None)
@@ -146,7 +143,7 @@ if __name__ == "__main__":
         starttime = datetime.now()
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
-            gnet = torch.load("./cart_save_model/a3c_cart_comb.pt")
+            gnet = torch.load("./CARTPOLE/cart_save_model/a3c_cart_comb.pt")
             gnet.eval()
         else:
             gnet = Net(N_S, N_A)
@@ -186,7 +183,7 @@ if __name__ == "__main__":
 
         if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
-            torch.save(gnet, "./cart_save_model/a3c_cart_comb.pt")
+            torch.save(gnet, "./CARTPOLE/cart_save_model/a3c_cart_comb.pt")
         elif handleArguments().load_model:
             print ("Testing! No need to save model.")
         else:
@@ -213,7 +210,7 @@ if __name__ == "__main__":
             'weight': 'normal',
             'size': 8,
             }
-    plt.text(0, 650, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("A3C-Cartpole (shared NN)")
     plt.show()
 

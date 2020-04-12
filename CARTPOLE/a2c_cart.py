@@ -92,7 +92,7 @@ if __name__ == "__main__":
         # load global network
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
-            gnet = torch.load("./cart_save_model/a2c_cart.pt")
+            gnet = torch.load("./CARTPOLE/cart_save_model/a2c_cart.pt")
             gnet.eval()
         else:
             gnet = Net(N_S, N_A)
@@ -126,7 +126,7 @@ if __name__ == "__main__":
                 buffer_s.append(s)
                 buffer_r.append(r)
 
-                if done or ep_r == 600:  # update network
+                if done or ep_r >= 450:  # update network
                     # sync
                     optimize(opt, gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                     buffer_s, buffer_a, buffer_r = [], [], []
@@ -157,7 +157,7 @@ if __name__ == "__main__":
 
         if np.mean(scores[-min(10, len(scores)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
-            torch.save(gnet, "./cart_save_model/a2c_cart.pt")
+            torch.save(gnet, "./CARTPOLE/cart_save_model/a2c_cart.pt")
         elif handleArguments().load_model:
             print ("Testing! No need to save model.")
         else:
@@ -182,7 +182,7 @@ if __name__ == "__main__":
             'weight': 'normal',
             'size': 8
             }
-    plt.text(0, 650, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("Vanilla A2C-Cartpole", fontsize = 16)
     plt.show()
 

@@ -104,7 +104,7 @@ class Worker(mp.Process):
                 buffer_s.append(s)
                 buffer_r.append(r)
 
-                if done or ep_r == 600:  # update global and assign to local net
+                if done or ep_r >= 400:  # update global and assign to local net
                     # sync
                     end = time.time()
                     time_done = end - start
@@ -143,7 +143,7 @@ if __name__ == "__main__":
         starttime = datetime.now()
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
-            gnet = torch.load("./save_model/a2c_sync_cart_comb.pt")
+            gnet = torch.load("./CARTPOLE/save_model/a2c_sync_cart_comb.pt")
             gnet.eval()
         else:
             gnet = Net(N_S, N_A)
@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
         if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
-            torch.save(gnet, "./save_model/a2c_sync_cart_comb.pt")
+            torch.save(gnet, "./CARTPOLE/save_model/a2c_sync_cart_comb.pt")
         elif handleArguments().load_model:
             print ("Testing! No need to save model.")
         else:
@@ -205,7 +205,7 @@ if __name__ == "__main__":
             'weight': 'normal',
             'size': 8,
             }
-    plt.text(0, 650, f"Average Duration: {timedelta_sum}", fontdict=font)
+    plt.text(0, 450, f"Average Duration: {timedelta_sum}", fontdict=font)
     plt.title("Synchronous A2C-Cartpole (shared NN)", fontsize = 16)
     plt.show()
 

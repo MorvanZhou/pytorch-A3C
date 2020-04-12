@@ -87,10 +87,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, time_done, a, ac
     with global_ep.get_lock():
         global_ep.value += 1
     with global_ep_r.get_lock():
-        if global_ep_r.value == 0.:
-            global_ep_r.value = ep_r
-        else:
-            global_ep_r.value = global_ep_r.value * 0.99 + ep_r * 0.01
+        global_ep_r.value = ep_r
     res_queue.put(global_ep_r.value)
     time_queue.put(time_done)
     action_queue.put(a)
@@ -100,7 +97,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, time_done, a, ac
 def plotter_ep_rew(ax2, scores):
     ax2.plot(scores)
     ax2.axhline(y=200.00, color='r')
-    ax2.set_ylim(0,700)
+    ax2.set_ylim(0,500)
     ax2.set_ylabel('Reward per Episode')
     ax2.set_xlabel('Episode')
 
