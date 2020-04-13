@@ -10,14 +10,14 @@ import torch.nn.functional as F
 from tqdm import trange
 from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution
 
-from viz_utils import set_init, plotter_ep_rew, handleArguments, optimize, plotter_ep_time, confidence_intervall
+from viz_utils import v_wrap, set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, optimize, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
 from shared_adam import SharedAdam
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
 
 GAMMA = 0.9
-MAX_EP = 3000
+MAX_EP = 1000
 frame_repeat = 12
 resolution = (30, 45)
 config_file_path = "deadly_corridor.cfg"
@@ -135,7 +135,12 @@ if __name__ == '__main__':
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
     action = []
 
-    for i in range(3):
+    if handleArguments().normalized_plot:
+        runs = 3
+    else:
+        runs = 1
+
+    for i in range(runs):
         starttime = datetime.now()
 
         # load global network
@@ -151,7 +156,7 @@ if __name__ == '__main__':
         # Global variables for episodes
         durations = []
         scores = []
-        global_ep, global_ep_r = 1, 0.
+        global_ep, global_ep_r, global_time_done = 1, 0., 0.
         name = 'w00'
         total_step = 1
         stop_processes = False
@@ -186,33 +191,38 @@ if __name__ == '__main__':
                     print("Total Reward:", game.get_total_reward())
                     buffer_s, buffer_a, buffer_r = [], [], []
 
-                    global_ep += 1
-                    if global_ep_r == 0.:
-                        global_ep_r = ep_r
-                    else:
-                        global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
-
                     end = time.time()
                     duration = end - start
-                    durations.append(duration)
 
-                    print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r, "| Duration:", round(duration, 5))
+                    global_ep += 1
+                    if handleArguments().normalized_plot:
+                        if global_ep_r == 0.:
+                            global_ep_r = ep_r
+                        else:
+                            global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
+                        global_time_done = global_time_done * 0.99 + duration * 0.01
+                        print(name, "Ep:", global_ep, "| Normalized Reward: %.0f" % global_ep_r,
+                              "| Normalized Duration:", round(global_time_done, 5))
+                    else:
+                        global_ep_r = ep_r
+                        print(name, "Ep:", global_ep, "| Epsidode Reward: %.0f" % global_ep_r,
+                              "| Duration:",
+                              round(global_time_done, 5))
+
                     scores.append(int(global_ep_r))
+                    durations.append(global_time_done)
 
-                    # TODO: check for reasonable reward and adjust
                     if handleArguments().load_model:
-                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and global_ep >= 10:
+                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and global_ep >= 50:
                             stop_processes = True
                     else:
-                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and global_ep >= 10:
+                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and global_ep >= 50:
                             stop_processes = True
                     break
 
                 state = s_
                 total_step += 1
 
-
-        # TODO: check for reasonable reward and adjust
         if np.mean(scores[-min(10, len(scores)):]) >= 0 and not handleArguments().load_model and global_ep >= 10:
             print("Save model")
             torch.save(model, "./doom_save_model/a2c_doom.pt")
@@ -233,15 +243,22 @@ if __name__ == '__main__':
          #   confidence_intervall(action)
 
         # Plot results
-        plotter_ep_time(ax1, durations)
-        plotter_ep_rew(ax2, scores)
+        if handleArguments().normalized_plot:
+            plotter_ep_time_norm(ax1, durations)
+            plotter_ep_rew_norm(ax2, scores)
+        else:
+            plotter_ep_time(ax1, durations)
+            plotter_ep_rew(ax2, scores)
 
     font = {'family': 'serif',
             'color': 'darkred',
             'weight': 'normal',
             'size': 8
             }
-    plt.text(0, 250, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    if handleArguments().normalized_plot:
+        plt.text(0, 50, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    else:
+        plt.text(0, 400, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("Vanilla A2C-Vizdoom", fontsize = 16)
     plt.show()
 

@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from tqdm import trange
 from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution
 
-from viz_utils import v_wrap, set_init, plotter_ep_rew, handleArguments, push_and_pull, record, plotter_ep_time, confidence_intervall
+from viz_utils import v_wrap, set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, push_and_pull, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
 import sys
@@ -19,11 +19,11 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 UPDATE_GLOBAL_ITER = 5
 GAMMA = 0.9
-MAX_EP = 10
+MAX_EP = 2000
 frame_repeat = 12
 resolution = (30, 45)
 config_file_path = "VIZDOOM/deadly_corridor.cfg"
-worker_num = int(mp.cpu_count()/3)     # Number of reincarnations for Agent
+worker_num = int(mp.cpu_count())     # Number of reincarnations for Agent
 
 
 def initialize_vizdoom(config):
@@ -126,14 +126,14 @@ class Net(nn.Module):
 
 
 class Worker(mp.Process):
-    def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, name):
+    def __init__(self, gnet, opt, global_ep, global_ep_r, global_time_done, res_queue, time_queue, action_queue, name):
         super(Worker, self).__init__()
         self.name = 'w%02i' % name
-        self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
+        self.g_ep, self.g_ep_r, self.g_time = global_ep, global_ep_r, global_time_done
         self.gnet, self.opt = gnet, opt
         self.lnet = Net(len(actions))           # local network
         self.game = initialize_vizdoom(config_file_path)
-        self.time_queue, self.action_queue = time_queue, action_queue
+        self.res_queue, self.time_queue, self.action_queue = res_queue, time_queue, action_queue
 
     def run(self):
         total_step = 1
@@ -171,16 +171,15 @@ class Worker(mp.Process):
                     if done:
                         end = time.time()
                         time_done = end - start
-                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, time_done, a,
+                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, self.g_time, time_done, a,
                                self.action_queue, self.name)
                         scores.append(int(self.g_ep_r.value))
 
-                        # TODO: check for reasonable reward and adjust
                         if handleArguments().load_model:
-                            if np.mean(scores[-min(10, len(scores)):]) >= 10 and self.g_ep.value >= 10:
+                            if np.mean(scores[-min(10, len(scores)):]) >= 10 and self.g_ep.value >= 50:
                                 stop_processes = True
                         else:
-                            if np.mean(scores[-min(10, len(scores)):]) >= 10 and self.g_ep.value >= 10:
+                            if np.mean(scores[-min(10, len(scores)):]) >= 10 and self.g_ep.value >= 50:
                                 stop_processes = True
                         break
 
@@ -200,9 +199,13 @@ if __name__ == '__main__':
     timedelta_sum = datetime.now()
     timedelta_sum -= timedelta_sum
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-    action = []
 
-    for i in range (3):
+    if handleArguments().normalized_plot:
+        runs = 3
+    else:
+        runs = 1
+
+    for i in range(runs):
         starttime = datetime.now()
 
         # load global network
@@ -215,14 +218,14 @@ if __name__ == '__main__':
 
         # global optimizer
         opt = SharedAdam(model.parameters(), lr=0.001, betas=(0.92, 0.999))
-        global_ep, global_ep_r, res_queue, time_queue, action_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue(), mp.Queue(), mp.Queue()
-
+        global_ep, global_ep_r, global_time_done = mp.Value('i', 0), mp.Value('d', 0.), mp.Value('d', 0.)
+        res_queue, time_queue, action_queue = mp.Queue(), mp.Queue(), mp.Queue()
         # parallel training
         if handleArguments().load_model:
-            workers = [Worker(model, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in range(1)]
+            workers = [Worker(model, opt, global_ep, global_ep_r, global_time_done,res_queue, time_queue, action_queue, i) for i in range(1)]
             [w.start() for w in workers]
         else:
-            workers = [Worker(model, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in
+            workers = [Worker(model, opt, global_ep, global_ep_r, global_time_done, res_queue, time_queue, action_queue, i) for i in
                        range(worker_num)]
             [w.start() for w in workers]
 
@@ -236,21 +239,22 @@ if __name__ == '__main__':
             a = action_queue.get()
             if r is not None:
                 res.append(r)
+            if t is not None:
                 durations.append(t)
+            if a is not None:
                 action.append(a)
             else:
                 break
 
         [w.join() for w in workers]
 
-        # TODO: check for reasonable reward and adjust
-        #if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
-        print("Save model")
-        torch.save(model, "./VIZDOOM/doom_save_model/a2c_doom.pt")
-        #elif handleArguments().load_model:
-         #   print("Testing! No need to save model.")
-        #else:
-         #   print("Failed to train agent. Model was not saved")
+        if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
+            print("Save model")
+            torch.save(model, "./VIZDOOM/doom_save_model/a2c_doom.pt")
+        elif handleArguments().load_model:
+            print("Testing! No need to save model.")
+        else:
+            print("Failed to train agent. Model was not saved")
 
         endtime = datetime.now()
         timedelta = endtime - starttime
@@ -264,15 +268,23 @@ if __name__ == '__main__':
         #   confidence_intervall(action)
 
         # Plot results
-        plotter_ep_time(ax1, durations)
-        plotter_ep_rew(ax2, res)
+
+        if handleArguments().normalized_plot:
+            plotter_ep_time_norm(ax1, durations)
+            plotter_ep_rew_norm(ax2, res)
+        else:
+            plotter_ep_time(ax1, durations)
+            plotter_ep_rew(ax2, res)
 
     font = {'family': 'serif',
             'color': 'darkred',
             'weight': 'normal',
             'size': 8
             }
-    plt.text(0, 250, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    if handleArguments().normalized_plot:
+        plt.text(0, 50, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    else:
+        plt.text(0, 400, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("A3C-Vizdoom", fontsize=16)
     plt.show()
 
