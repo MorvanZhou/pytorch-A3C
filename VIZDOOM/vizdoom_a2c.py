@@ -212,13 +212,14 @@ if __name__ == '__main__':
                     scores.append(int(global_ep_r))
                     durations.append(global_time_done)
 
-                    if handleArguments().load_model:
-                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and global_ep >= 50:
+                    if handleArguments().load_model and handleArguments().normalized_plot:
+                        if np.mean(scores[-min(100, len(scores)):]) >= 50 and global_ep >= 100:
+                            stop_processes = True
+                    elif handleArguments().normalized_plot:
+                        if np.mean(scores[-min(10, len(scores)):]) >= 50 and global_ep >= 10:
                             stop_processes = True
                     else:
-                        if np.mean(scores[-min(10, len(scores)):]) >= 0 and global_ep >= 50:
-                            stop_processes = True
-                    break
+                        stop_processes = False
 
                 state = s_
                 total_step += 1

@@ -173,14 +173,20 @@ class Worker(mp.Process):
                         time_done = end - start
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, self.g_time, time_done, a,
                                self.action_queue, self.name)
+
+                        if not handleArguments().normalized_plot:
+                            self.g_ep_r.value = 0.99 * self.g_ep_r.value + ep_r * 0.01
                         scores.append(int(self.g_ep_r.value))
 
-                        if handleArguments().load_model:
-                            if np.mean(scores[-min(10, len(scores)):]) >= 10 and self.g_ep.value >= 50:
+
+                        if handleArguments().load_model and handleArguments().normalized_plot:
+                            if np.mean(scores[-min(100, len(scores)):]) >= 50 and self.g_ep.value >= 100:
+                                stop_processes = True
+                        elif handleArguments().normalized_plot:
+                            if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 50 and self.g_ep.value >= mp.cpu_count():
                                 stop_processes = True
                         else:
-                            if np.mean(scores[-min(10, len(scores)):]) >= 10 and self.g_ep.value >= 50:
-                                stop_processes = True
+                            stop_processes = False
                         break
 
                 state = s_

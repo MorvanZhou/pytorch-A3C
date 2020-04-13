@@ -157,12 +157,14 @@ if __name__ == "__main__":
                     durations.append(duration)
                     scores.append(int(global_ep_r))
 
-                    if handleArguments().load_model:
+                    if handleArguments().load_model and handleArguments().normalized_plot:
                         if np.mean(scores[-min(100, len(scores)):]) >= 400 and global_ep >= 100:
                             stop_processes = True
-                    else:
+                    elif handleArguments().normalized_plot:
                         if np.mean(scores[-min(10, len(scores)):]) >= 400 and global_ep >= 10:
                             stop_processes = True
+                    else:
+                        stop_processes = False
                     break
 
                 s = s_
