@@ -6,7 +6,7 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from cart_utils import v_wrap, set_init, push_and_pull, record, plotter_ep_rew, handleArguments, plotter_ep_time, confidence_intervall
+from cart_utils import v_wrap, set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, push_and_pull, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import torch.multiprocessing as mp
@@ -77,13 +77,14 @@ class Net(nn.Module):
 
 
 class Worker(mp.Process):
-    def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, name):
+    def __init__(self, gnet, opt, global_ep, global_ep_r, global_time_done, res_queue, time_queue, action_queue, name):
         super(Worker, self).__init__()
         self.name = 'w%02i' % name
-        self.g_ep, self.g_ep_r, self.res_queue, self.time_queue, self.action_queue = global_ep, global_ep_r, res_queue, time_queue, action_queue
+        self.g_ep, self.g_ep_r, self.g_time = global_ep, global_ep_r, global_time_done
         self.gnet, self.opt = gnet, opt
-        self.lnet = Net(N_S, N_A)           # local network
-        self.env = gym.make('CartPole-v0').unwrapped
+        self.lnet = Net(len(actions))           # local network
+        self.res_queue, self.time_queue, self.action_queue = res_queue, time_queue, action_queue
+        self.env = gym.make("CartPole-v0").unwrapped
 
     def run(self):
         total_step = 1
@@ -115,7 +116,8 @@ class Worker(mp.Process):
                     if not handleArguments().load_model:
                         time.sleep(0.5)
 
-                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue,self.time_queue, time_done, a, self.action_queue, self.name)
+                    record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, self.g_time, time_done, a,
+                           self.action_queue, self.name)
                     scores.append(int(self.g_ep_r.value))
                     if handleArguments().load_model:
                         if np.mean(scores[-min(100, len(scores)):]) >= 400 and self.g_ep.value >= 100:
@@ -140,8 +142,13 @@ if __name__ == "__main__":
     timedelta_sum -= timedelta_sum
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 
+    if handleArguments().normalized_plot:
+        runs = 3
+    else:
+        runs = 1
+
     # Reinitialize Agent to make 5 trials
-    for i in range(3):
+    for i in range(runs):
         starttime = datetime.now()
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
@@ -152,14 +159,14 @@ if __name__ == "__main__":
 
         gnet.share_memory()         # share the global parameters in multiprocessing
         opt = SharedAdam(gnet.parameters(), lr=0.005, betas=(0.92, 0.999))      # global optimizer
-        global_ep, global_ep_r, res_queue, time_queue, action_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue(), mp.Queue(), mp.Queue()
-
+        global_ep, global_ep_r, global_time_done = mp.Value('i', 0), mp.Value('d', 0.), mp.Value('d', 0.)
+        res_queue, time_queue, action_queue = mp.Queue(), mp.Queue(), mp.Queue()
         # parallel training
         if handleArguments().load_model:
-            workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in range(1)]
+            workers = [Worker(gnet, opt, global_ep, global_ep_r, global_time_done,res_queue, time_queue, action_queue, i) for i in range(1)]
             [w.start() for w in workers]
         else:
-            workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, time_queue, action_queue, i) for i in range(mp.cpu_count())]
+            workers = [Worker(gnet, opt, global_ep, global_ep_r, global_time_done, res_queue, time_queue, action_queue, i) for i in range(mp.cpu_count())]
             [w.start() for w in workers]
 
         # record episode-reward and episode-duration to plot
@@ -172,7 +179,9 @@ if __name__ == "__main__":
             a = action_queue.get()
             if r is not None:
                 res.append(r)
+            if t is not None:
                 durations.append(t)
+            if a is not None:
                 actions.append(a)
             else:
                 break
@@ -200,8 +209,12 @@ if __name__ == "__main__":
             confidence_intervall(actions)
 
         # Plot results
-        plotter_ep_time(ax1, durations)
-        plotter_ep_rew(ax2, res)
+        if handleArguments().normalized_plot:
+            plotter_ep_time_norm(ax1, durations)
+            plotter_ep_rew_norm(ax2, res)
+        else:
+            plotter_ep_time(ax1, durations)
+            plotter_ep_rew(ax2, res)
 
     font = {'family': 'serif',
             'color': 'darkred',

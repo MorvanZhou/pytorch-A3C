@@ -6,7 +6,7 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from cart_utils import v_wrap, set_init, plotter_ep_rew, handleArguments, optimize, plotter_ep_time, confidence_intervall
+from cart_utils import v_wrap, set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, optimize, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from shared_adam import SharedAdam
@@ -85,8 +85,13 @@ if __name__ == "__main__":
     timedelta_sum -= timedelta_sum
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
     actions = []
-    # Reinitialize Agent to make 5 trials
-    for i in range(3):
+
+    if handleArguments().normalized_plot:
+        runs = 3
+    else:
+        runs = 1
+
+    for i in range(runs):
         starttime = datetime.now()
 
         # load global network
@@ -102,7 +107,7 @@ if __name__ == "__main__":
         # Global variables for episodes
         durations = []
         scores = []
-        global_ep, global_ep_r = 1, 0.
+        global_ep, global_ep_r, global_time_done = 1, 0., 0.
         name = 'w00'
         total_step = 1
         stop_processes = False
@@ -131,19 +136,28 @@ if __name__ == "__main__":
                     optimize(opt, gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                     buffer_s, buffer_a, buffer_r = [], [], []
 
-                    global_ep += 1
-
-                    if global_ep_r == 0.:
-                        global_ep_r = ep_r
-                    else:
-                        global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
-
                     end = time.time()
                     duration = end - start
-                    durations.append(duration)
 
-                    print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r, "| Duration:", round(duration, 5))
+                    global_ep += 1
+
+                    if handleArguments().normalized_plot:
+                        if global_ep_r == 0.:
+                            global_ep_r = ep_r
+                        else:
+                            global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
+                        global_time_done = global_time_done * 0.99 + duration * 0.01
+                        print(name, "Ep:", global_ep, "| Normalized Reward: %.0f" % global_ep_r,
+                              "| Normalized Duration:", round(global_time_done, 5))
+                    else:
+                        global_ep_r = ep_r
+                        print(name, "Ep:", global_ep, "| Epsidode Reward: %.0f" % global_ep_r,
+                              "| Duration:",
+                              round(global_time_done, 5))
+
+                    durations.append(duration)
                     scores.append(int(global_ep_r))
+
                     if handleArguments().load_model:
                         if np.mean(scores[-min(100, len(scores)):]) >= 400 and global_ep >= 100:
                             stop_processes = True
@@ -175,8 +189,12 @@ if __name__ == "__main__":
             confidence_intervall(actions)
 
         # Plot results
-        plotter_ep_time(ax1, durations)
-        plotter_ep_rew(ax2, scores)
+        if handleArguments().normalized_plot:
+            plotter_ep_time_norm(ax1, durations)
+            plotter_ep_rew_norm(ax2, scores)
+        else:
+            plotter_ep_time(ax1, durations)
+            plotter_ep_rew(ax2, scores)
     font = {'family': 'serif',
             'color': 'darkred',
             'weight': 'normal',

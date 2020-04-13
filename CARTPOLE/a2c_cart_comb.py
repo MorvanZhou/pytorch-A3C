@@ -6,7 +6,7 @@ The most simple implementation for continuous action.
 
 import torch
 import torch.nn as nn
-from cart_utils import v_wrap, set_init, plotter_ep_rew, handleArguments, optimize, plotter_ep_time, confidence_intervall
+from cart_utils import v_wrap, set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, optimize, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from shared_adam import SharedAdam
@@ -77,30 +77,36 @@ class Net(nn.Module):
 
 
 if __name__ == "__main__":
-    # load global network
-    print ("Starting A2C Agent for Cartpole-v0")
+
+    print("Starting A2C Agent for Cartpole-v0")
     time.sleep(3)
     timedelta_sum = datetime.now()
     timedelta_sum -= timedelta_sum
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
     actions = []
-    # Reinitialize Agent to make 5 trials
-    for i in range(3):
+
+    if handleArguments().normalized_plot:
+        runs = 3
+    else:
+        runs = 1
+
+    for i in range(runs):
         starttime = datetime.now()
 
+        # load global network
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
-            gnet = torch.load("./CARTPOLE/cart_save_model/a2c_cart_comb.pt")
+            gnet = torch.load("./CARTPOLE/cart_save_model/a2c_cart.pt")
             gnet.eval()
         else:
             gnet = Net(N_S, N_A)
 
-        opt = SharedAdam(gnet.parameters(), lr=0.005, betas=(0.92, 0.999))      # global optimizer
+        opt = SharedAdam(gnet.parameters(), lr=0.005, betas=(0.92, 0.999))  # global optimizer
 
         # Global variables for episodes
         durations = []
         scores = []
-        global_ep, global_ep_r = 1, 0.
+        global_ep, global_ep_r, global_time_done = 1, 0., 0.
         name = 'w00'
         total_step = 1
         stop_processes = False
@@ -124,20 +130,33 @@ if __name__ == "__main__":
                 buffer_s.append(s)
                 buffer_r.append(r)
 
-                if done or ep_r >= 400:  # update network
+                if done or ep_r >= 450:  # update network
                     # sync
                     optimize(opt, gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                     buffer_s, buffer_a, buffer_r = [], [], []
 
-                    global_ep += 1
-                    global_ep_r = ep_r
-
                     end = time.time()
                     duration = end - start
-                    durations.append(duration)
 
-                    print("w00 Ep:", global_ep, "| Ep_r: %.0f" % global_ep_r, "| Duration:", round(duration, 5))
+                    global_ep += 1
+
+                    if handleArguments().normalized_plot:
+                        if global_ep_r == 0.:
+                            global_ep_r = ep_r
+                        else:
+                            global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
+                        global_time_done = global_time_done * 0.99 + duration * 0.01
+                        print(name, "Ep:", global_ep, "| Normalized Reward: %.0f" % global_ep_r,
+                              "| Normalized Duration:", round(global_time_done, 5))
+                    else:
+                        global_ep_r = ep_r
+                        print(name, "Ep:", global_ep, "| Epsidode Reward: %.0f" % global_ep_r,
+                              "| Duration:",
+                              round(global_time_done, 5))
+
+                    durations.append(duration)
                     scores.append(int(global_ep_r))
+
                     if handleArguments().load_model:
                         if np.mean(scores[-min(100, len(scores)):]) >= 400 and global_ep >= 100:
                             stop_processes = True
@@ -151,16 +170,16 @@ if __name__ == "__main__":
 
         if np.mean(scores[-min(10, len(scores)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
-            torch.save(gnet, "./CARTPOLE/cart_save_model/a2c_cart_comb.pt")
+            torch.save(gnet, "./CARTPOLE/cart_save_model/a2c_cart.pt")
         elif handleArguments().load_model:
-            print ("Testing! No need to save model.")
+            print("Testing! No need to save model.")
         else:
             print("Failed to train agent. Model was not saved")
         endtime = datetime.now()
         timedelta = endtime - starttime
         print("Number of Episodes: ", global_ep, " | Finished within: ", timedelta)
 
-        timedelta_sum += timedelta/3
+        timedelta_sum += timedelta / 3
 
         # Get results for confidence intervall
         if handleArguments().load_model:
@@ -169,15 +188,19 @@ if __name__ == "__main__":
             confidence_intervall(actions)
 
         # Plot results
-        plotter_ep_time(ax1, durations)
-        plotter_ep_rew(ax2, scores)
+        if handleArguments().normalized_plot:
+            plotter_ep_time_norm(ax1, durations)
+            plotter_ep_rew_norm(ax2, scores)
+        else:
+            plotter_ep_time(ax1, durations)
+            plotter_ep_rew(ax2, scores)
     font = {'family': 'serif',
             'color': 'darkred',
             'weight': 'normal',
             'size': 8
             }
     plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    plt.title("Vanilla A2C-Cartpole (shared NN)", fontsize = 16)
+    plt.title("Vanilla A2C-Cartpole", fontsize=16)
     plt.show()
 
     sys.exit()

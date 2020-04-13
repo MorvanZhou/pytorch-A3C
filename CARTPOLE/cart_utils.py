@@ -83,16 +83,33 @@ def optimize(opt, lnet, done, s_, bs, ba, br, gamma):
     opt.step()
 
 
-def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, time_done, a, action_queue, name):
+def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, global_time_done, time_done, a, action_queue, name):
     with global_ep.get_lock():
         global_ep.value += 1
-    with global_ep_r.get_lock():
-        global_ep_r.value = ep_r
+
+    if handleArguments().normalized_plot:
+        with global_ep_r.get_lock():
+            if global_ep_r.value == 0.:
+                global_ep_r.value = ep_r
+            else:
+                global_ep_r.value = global_ep_r.value * 0.99 + ep_r * 0.01
+            time_done = global_time_done.value * 0.99 + time_done * 0.01
+        print(name, "Ep:", global_ep.value, "| Normalized Reward: %.0f" % global_ep_r.value, "| Normalized Duration:", round(time_done, 5))
+    else:
+        with global_ep_r.get_lock():
+            global_ep_r.value = ep_r
+        print(name, "Ep:", global_ep.value, "| Epsidode Reward: %.0f" % global_ep_r.value, "| Duration:",
+              round(time_done, 5))
     res_queue.put(global_ep_r.value)
     time_queue.put(time_done)
     action_queue.put(a)
-    print(name, "Ep:", global_ep.value, "| Ep_r: %.0f" % global_ep_r.value, "| Duration:", round(time_done, 5))
 
+def plotter_ep_rew_norm(ax2, scores):
+    ax2.plot(scores)
+    ax2.axhline(y=200.00, color='r')
+    ax2.set_ylim(0,500)
+    ax2.set_ylabel('Reward per Episode')
+    ax2.set_xlabel('Episode')
 
 def plotter_ep_rew(ax2, scores):
     ax2.plot(scores)
@@ -100,6 +117,11 @@ def plotter_ep_rew(ax2, scores):
     ax2.set_ylim(0,500)
     ax2.set_ylabel('Reward per Episode')
     ax2.set_xlabel('Episode')
+
+def plotter_ep_time_norm(ax1, duration_episode):
+    ax1.plot(duration_episode)
+    ax1.set_ylim(0,0.02)
+    ax1.set_ylabel('Duration of Episode')
 
 
 def plotter_ep_time(ax1, duration_episode):
@@ -148,6 +170,7 @@ def handleArguments():
         description="Switch between modes in A2C or loading models from previous games")
     parser.add_argument("--demo_mode", "-d", help="Renders the gym environment", action="store_true")
     parser.add_argument("--load_model", "-l", help="Loads the model of previously gained training data", action="store_true")
+    parser.add_argument("--normalized_plot", "-n", help="Shows plot of normalized reward", action="store_true")
     global args
     args = parser.parse_args()
     return args
