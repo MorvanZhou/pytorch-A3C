@@ -20,7 +20,7 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
 GAMMA = 0.9
-MAX_EP = 3000
+MAX_EP = 2000
 
 env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
@@ -32,11 +32,11 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.s_dim = s_dim
         self.a_dim = a_dim
-        self.pi1 = nn.Linear(s_dim, 48)
-        self.pi2 = nn.Linear(48, 48)
-        self.pi3 = nn.Linear(48, a_dim)
-        self.v2 = nn.Linear(48, 48)
-        self.v3 = nn.Linear(48, 1)
+        self.pi1 = nn.Linear(s_dim, 80)
+        self.pi2 = nn.Linear(80, 60)
+        self.pi3 = nn.Linear(60, a_dim)
+        self.v2 = nn.Linear(80, 60)
+        self.v3 = nn.Linear(60, 1)
         set_init([self.pi1, self.pi2, self.pi3, self.v2, self.v3])
         self.distribution = torch.distributions.Categorical
 
@@ -81,7 +81,7 @@ class Worker(mp.Process):
         self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.g_time = global_ep, global_ep_r, global_time_done
         self.gnet, self.opt = gnet, opt
-        self.lnet = Net(len(actions))  # local network
+        self.lnet = Net(N_S, N_A)  # local network
         self.res_queue, self.time_queue, self.action_queue = res_queue, time_queue, action_queue
         self.env = gym.make("CartPole-v0").unwrapped
 
@@ -105,7 +105,7 @@ class Worker(mp.Process):
                 buffer_s.append(s)
                 buffer_r.append(r)
 
-                if done or ep_r >= 400:  # update global and assign to local net
+                if done or ep_r >= 450:  # update global and assign to local net
                     # sync
                     end = time.time()
                     time_done = end - start
@@ -121,10 +121,10 @@ class Worker(mp.Process):
 
                     scores.append(int(self.g_ep_r.value))
                     if handleArguments().load_model and handleArguments().normalized_plot:
-                        if np.mean(scores[-min(100, len(scores)):]) >= 10 and self.g_ep.value >= 100:
+                        if np.mean(scores[-min(100, len(scores)):]) >= 400 and self.g_ep.value >= 100:
                             stop_processes = True
                     elif handleArguments().normalized_plot:
-                        if np.mean(scores[-min(10, len(scores)):]) >= 10 and self.g_ep.value >= mp.cpu_count():
+                        if np.mean(scores[-min(10, len(scores)):]) >= 400 and self.g_ep.value >= mp.cpu_count():
                             stop_processes = True
                     else:
                         stop_processes = False
@@ -155,13 +155,13 @@ if __name__ == "__main__":
         starttime = datetime.now()
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
-            gnet = torch.load("./CARTPOLE/cart_save_model/a2c_sync_cart.pt")
+            gnet = torch.load("./CARTPOLE/cart_save_model/a2c_sync_cart_comb.pt")
             gnet.eval()
         else:
             gnet = Net(N_S, N_A)
 
         gnet.share_memory()  # share the global parameters in multiprocessing
-        opt = SharedAdam(gnet.parameters(), lr=0.005, betas=(0.92, 0.999))  # global optimizer
+        opt = SharedAdam(gnet.parameters(), lr=0.001, betas=(0.92, 0.999))  # global optimizer
         global_ep, global_ep_r, global_time_done = mp.Value('i', 0), mp.Value('d', 0.), mp.Value('d', 0.)
         res_queue, time_queue, action_queue = mp.Queue(), mp.Queue(), mp.Queue()
         # parallel training
@@ -195,9 +195,9 @@ if __name__ == "__main__":
 
         [w.join() for w in workers]
 
-        if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300 and not handleArguments().load_model:
+        if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 200 and not handleArguments().load_model:
             print("Save model")
-            torch.save(gnet, "./CARTPOLE/cart_save_model/a2c_sync_cart.pt")
+            torch.save(gnet, "./CARTPOLE/cart_save_model/a2c_sync_cart_comb.pt")
         elif handleArguments().load_model:
             print("Testing! No need to save model.")
         else:
@@ -229,7 +229,7 @@ if __name__ == "__main__":
             'size': 8,
             }
     plt.text(0, 450, f"Average Duration: {timedelta_sum}", fontdict=font)
-    plt.title("Synchronous A2C-Cartpole", fontsize=16)
+    plt.title("Synchronous A2C-Cartpole (shared NN)", fontsize=16)
     plt.show()
 
     sys.exit()

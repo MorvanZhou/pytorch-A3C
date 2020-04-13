@@ -21,7 +21,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 #UPDATE_GLOBAL_ITER = 20
 GAMMA = 0.9
-MAX_EP = 3000
+MAX_EP = 2000
 
 env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
@@ -83,7 +83,7 @@ class Worker(mp.Process):
         self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.g_time = global_ep, global_ep_r, global_time_done
         self.gnet, self.opt = gnet, opt
-        self.lnet = Net(len(actions))  # local network
+        self.lnet = Net(N_S, N_A)  # local network
         self.res_queue, self.time_queue, self.action_queue = res_queue, time_queue, action_queue
         self.env = gym.make("CartPole-v0").unwrapped
 
@@ -107,7 +107,7 @@ class Worker(mp.Process):
                 buffer_s.append(s)
                 buffer_r.append(r)
 
-                if done or ep_r >= 400:  # update global and assign to local net
+                if done or ep_r >= 450:  # update global and assign to local net
                     # sync
                     end = time.time()
                     time_done = end - start
@@ -120,10 +120,10 @@ class Worker(mp.Process):
 
                     scores.append(int(self.g_ep_r.value))
                     if handleArguments().load_model and handleArguments().normalized_plot:
-                        if np.mean(scores[-min(100, len(scores)):]) >= 10 and self.g_ep.value >= 100:
+                        if np.mean(scores[-min(100, len(scores)):]) >= 400 and self.g_ep.value >= 100:
                             stop_processes = True
                     elif handleArguments().normalized_plot:
-                        if np.mean(scores[-min(10, len(scores)):]) >= 10 and self.g_ep.value >= mp.cpu_count():
+                        if np.mean(scores[-min(10, len(scores)):]) >= 400 and self.g_ep.value >= mp.cpu_count():
                             stop_processes = True
                     else:
                         stop_processes = False
@@ -154,7 +154,7 @@ if __name__ == "__main__":
         starttime = datetime.now()
         if handleArguments().load_model:
             gnet = Net(N_S, N_A)
-            gnet = torch.load("./CARTPOLE/cart_save_model/a2c_sync_cart.pt")
+            gnet = torch.load("./CARTPOLE/cart_save_model/a3c_cart.pt")
             gnet.eval()
         else:
             gnet = Net(N_S, N_A)
@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
         if np.mean(res[-min(mp.cpu_count(), len(res)):]) >= 300 and not handleArguments().load_model:
             print("Save model")
-            torch.save(gnet, "./CARTPOLE/cart_save_model/a2c_sync_cart.pt")
+            torch.save(gnet, "./CARTPOLE/cart_save_model/a3c_cart.pt")
         elif handleArguments().load_model:
             print("Testing! No need to save model.")
         else:
@@ -228,7 +228,7 @@ if __name__ == "__main__":
             'size': 8,
             }
     plt.text(0, 450, f"Average Duration: {timedelta_sum}", fontdict=font)
-    plt.title("Synchronous A2C-Cartpole", fontsize=16)
+    plt.title("A3C-Cartpole", fontsize=16)
     plt.show()
 
     sys.exit()
