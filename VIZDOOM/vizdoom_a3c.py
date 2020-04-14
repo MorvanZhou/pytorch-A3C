@@ -174,10 +174,7 @@ class Worker(mp.Process):
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, self.g_time, time_done, a,
                                self.action_queue, self.name)
 
-                        if not handleArguments().normalized_plot:
-                            self.g_ep_r.value = 0.99 * self.g_ep_r.value + ep_r * 0.01
                         scores.append(int(self.g_ep_r.value))
-
 
                         if handleArguments().load_model and handleArguments().normalized_plot:
                             if np.mean(scores[-min(100, len(scores)):]) >= 50 and self.g_ep.value >= 100:
@@ -290,7 +287,7 @@ if __name__ == '__main__':
     if handleArguments().normalized_plot:
         plt.text(0, 50, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     else:
-        plt.text(0, 400, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+        plt.text(0, 500, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("A3C-Vizdoom", fontsize=16)
     plt.show()
 

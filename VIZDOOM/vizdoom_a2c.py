@@ -15,12 +15,12 @@ from shared_adam import SharedAdam
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
-
+UPDATE_MODEL = 5
 GAMMA = 0.9
-MAX_EP = 1000
+MAX_EP = 2000
 frame_repeat = 12
 resolution = (30, 45)
-config_file_path = "deadly_corridor.cfg"
+config_file_path = "VIZDOOM/deadly_corridor.cfg"
 
 
 def initialize_vizdoom(config):
@@ -146,7 +146,7 @@ if __name__ == '__main__':
         # load global network
         if handleArguments().load_model:
             model = Net(len(actions))
-            model = torch.load("./doom_save_model/a2c_doom.pt")
+            model = torch.load("./VIZDOOM/doom_save_model/a2c_doom.pt")
             model.eval()
         else:
             model = Net(len(actions))
@@ -161,11 +161,13 @@ if __name__ == '__main__':
         total_step = 1
         stop_processes = False
 
-        while global_ep < MAX_EP:
+        while global_ep < MAX_EP and stop_processes is False:
             game.new_episode()
+            state = game_state(game)
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             while True:
+
                 # Initialize stopwatch for average episode duration
                 start = time.time()
                 done = False
@@ -184,53 +186,56 @@ if __name__ == '__main__':
                 buffer_s.append(state)
                 buffer_r.append(r)
 
-                if done or ep_r == 50:  # update network
+                if done or total_step % UPDATE_MODEL == 0:  # update network
                     # sync
                     optimize(opt, model, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
                     #print("Acion_array:", action)
                     print("Total Reward:", game.get_total_reward())
                     buffer_s, buffer_a, buffer_r = [], [], []
 
-                    end = time.time()
-                    duration = end - start
+                    if done:
+                        end = time.time()
+                        duration = end - start
 
-                    global_ep += 1
-                    if handleArguments().normalized_plot:
-                        if global_ep_r == 0.:
-                            global_ep_r = ep_r
+                        global_ep += 1
+                        if handleArguments().normalized_plot:
+                            if global_ep_r == 0.:
+                                global_ep_r = ep_r
+                            else:
+                                global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
+                            global_time_done = global_time_done * 0.99 + duration * 0.01
+                            print(name, "Ep:", global_ep, "| Normalized Reward: %.0f" % global_ep_r,
+                                  "| Normalized Duration:", round(global_time_done, 5))
                         else:
-                            global_ep_r = global_ep_r * 0.99 + ep_r * 0.01
-                        global_time_done = global_time_done * 0.99 + duration * 0.01
-                        print(name, "Ep:", global_ep, "| Normalized Reward: %.0f" % global_ep_r,
-                              "| Normalized Duration:", round(global_time_done, 5))
-                    else:
-                        global_ep_r = ep_r
-                        print(name, "Ep:", global_ep, "| Epsidode Reward: %.0f" % global_ep_r,
-                              "| Duration:",
-                              round(global_time_done, 5))
+                            global_ep_r = ep_r
+                            global_time_done = duration
+                            print(name, "Ep:", global_ep, "| Epsidode Reward: %.0f" % global_ep_r,
+                                  "| Duration:",
+                                  round(global_time_done, 5))
 
-                    scores.append(int(global_ep_r))
-                    durations.append(global_time_done)
+                        scores.append(int(global_ep_r))
+                        durations.append(global_time_done)
 
-                    if handleArguments().load_model and handleArguments().normalized_plot:
-                        if np.mean(scores[-min(100, len(scores)):]) >= 50 and global_ep >= 100:
-                            stop_processes = True
-                    elif handleArguments().normalized_plot:
-                        if np.mean(scores[-min(10, len(scores)):]) >= 50 and global_ep >= 10:
-                            stop_processes = True
-                    else:
-                        stop_processes = False
+                        #if handleArguments().load_model and handleArguments().normalized_plot:
+                         #   if np.mean(scores[-min(100, len(scores)):]) >= 50 and global_ep >= 100:
+                          #      stop_processes = True
+                        #elif handleArguments().normalized_plot:
+                         #   if np.mean(scores[-min(10, len(scores)):]) >= 50 and global_ep >= 10:
+                        #        stop_processes = True
+                        #else:
+                         #   stop_processes = False
+                        break
 
                 state = s_
                 total_step += 1
 
-        if np.mean(scores[-min(10, len(scores)):]) >= 0 and not handleArguments().load_model and global_ep >= 10:
-            print("Save model")
-            torch.save(model, "./doom_save_model/a2c_doom.pt")
-        elif handleArguments().load_model:
-            print ("Testing! No need to save model.")
-        else:
-            print("Failed to train agent. Model was not saved")
+        #if np.mean(scores[-min(10, len(scores)):]) >= 0 and not handleArguments().load_model and global_ep >= 10:
+        print("Save model")
+        torch.save(model, "./VIZDOOM/doom_save_model/a2c_doom.pt")
+        #elif handleArguments().load_model:
+        #    print ("Testing! No need to save model.")
+        #else:
+        #    print("Failed to train agent. Model was not saved")
 
         endtime = datetime.now()
         timedelta = endtime - starttime
@@ -257,9 +262,9 @@ if __name__ == '__main__':
             'size': 8
             }
     if handleArguments().normalized_plot:
-        plt.text(0, 50, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+        plt.text(0, 250, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     else:
-        plt.text(0, 400, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+        plt.text(0, 500, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("Vanilla A2C-Vizdoom", fontsize = 16)
     plt.show()
 

@@ -55,7 +55,7 @@ def optimize(opt, lnet, done, s_, bs, ba, br, gamma):
     if done:
         v_s_ = 0.               # terminal
     else:
-        v_s_ = lnet.forward(v_wrap(s_[None, :]))[-1].data.numpy()[0, 0]
+        v_s_ = lnet.forward(s_)[1].data.numpy()[0, 0]
 
     buffer_v_target = []
 
@@ -100,20 +100,20 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, global_time_done
 def plotter_ep_rew_norm(ax2, scores):
     ax2.plot(scores)
     #ax2.axhline(y=200.00, color='r')
-    ax2.set_ylim(-120,70)
+    ax2.set_ylim(-120,300)
     ax2.set_ylabel('Reward per Episode')
     ax2.set_xlabel('Episode')
 
 def plotter_ep_rew(ax2, scores):
     ax2.plot(scores)
     #ax2.axhline(y=200.00, color='r')
-    ax2.set_ylim(-150,450)
+    ax2.set_ylim(-120,550)
     ax2.set_ylabel('Reward per Episode')
     ax2.set_xlabel('Episode')
 
 def plotter_ep_time_norm(ax1, duration_episode):
     ax1.plot(duration_episode)
-    ax1.set_ylim(0,0.1)
+    ax1.set_ylim(0,2)
     ax1.set_ylabel('Duration of Episode')
 
 def plotter_ep_time(ax1, duration_episode):
