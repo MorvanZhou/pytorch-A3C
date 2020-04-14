@@ -31,21 +31,19 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.s_dim = s_dim
         self.a_dim = a_dim
-        self.pi1 = nn.Linear(s_dim, 24)
-        self.pi12 = nn.Linear(24, 48)
-        self.pi2 = nn.Linear(48, 24)
-        self.pi3 = nn.Linear(24, a_dim)
-        self.v2 = nn.Linear(48, 24)
-        self.v3 = nn.Linear(24, 1)
-        set_init([self.pi1, self.pi12, self.pi2, self.pi3, self.v2, self.v3])
+        self.pi1 = nn.Linear(s_dim, 80)
+        self.pi2 = nn.Linear(80, 60)
+        self.pi3 = nn.Linear(60, a_dim)
+        self.v2 = nn.Linear(80, 60)
+        self.v3 = nn.Linear(60, 1)
+        set_init([self.pi1, self.pi2, self.pi3, self.v2, self.v3])
         self.distribution = torch.distributions.Categorical
 
     def forward(self, x):
         pi1 = F.relu(self.pi1(x))
-        pi12 = F.relu(self.pi12(pi1))
-        pi2 = F.relu(self.pi2(pi12))
+        pi2 = F.relu(self.pi2(pi1))
         logits = self.pi3(pi2)
-        v2 = F.relu(self.v2(pi12))
+        v2 = F.relu(self.v2(pi1))
         values = self.v3(v2)
         return logits, values
 
@@ -203,7 +201,7 @@ if __name__ == "__main__":
             'size': 8
             }
     plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    plt.title("Vanilla A2C-Cartpole", fontsize=16)
+    plt.title("Vanilla A2C-Cartpole (shared NN)", fontsize=16)
     plt.show()
 
     if handleArguments().save_data:

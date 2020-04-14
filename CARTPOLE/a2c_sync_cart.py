@@ -233,9 +233,12 @@ if __name__ == "__main__":
     plt.show()
 
     if handleArguments().save_data:
-        scores = np.asarray([res])
-        np.savetxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb.csv', res, delimiter=',')
-
+        if handleArguments().load_model:
+            scores = np.asarray([res])
+            np.savetxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_test.csv', scores, delimiter=',')
+        else:
+            scores = np.asarray([res])
+            np.savetxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart.csv', scores, delimiter=',')
 
     sys.exit()
 

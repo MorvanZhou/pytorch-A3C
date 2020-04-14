@@ -223,9 +223,12 @@ if __name__ == "__main__":
             plotter_ep_rew(ax2, res)
 
         if handleArguments().save_data:
-            scores = np.asarray([res])
-            np.savetxt('CARTPOLE/cart_save_plot_data/a3c_cart.csv', scores, delimiter=',')
-
+            if handleArguments().load_model:
+                scores = np.asarray([res])
+                np.savetxt('CARTPOLE/cart_save_plot_data/a3c_cart_test.csv', scores, delimiter=',')
+            else:
+                scores = np.asarray([res])
+                np.savetxt('CARTPOLE/cart_save_plot_data/a3c_cart.csv', scores, delimiter=',')
 
     font = {'family': 'serif',
             'color': 'darkred',
