@@ -64,8 +64,6 @@ class Net(nn.Module):
     def loss_func(self, s, a, v_t):
         self.train()
         logits, values = self.forward(s)
-        print ("V_T:", v_t)
-        print ("Values:", values)
         td = v_t - values
         c_loss = td.pow(2)
 
@@ -90,7 +88,7 @@ if __name__ == "__main__":
     scores = []
     actions = []
 
-    if handleArguments().normalized_plot:
+    if handleArguments().normalized_plot and not handleArguments().save_data:
         runs = 3
     else:
         runs = 1
@@ -152,6 +150,7 @@ if __name__ == "__main__":
                               "| Normalized Duration:", round(global_time_done, 5))
                     else:
                         global_ep_r = ep_r
+                        global_time_done = duration
                         print(name, "Ep:", global_ep, "| Epsisode Reward: %.0f" % global_ep_r,
                               "| Duration:",
                               round(global_time_done, 5))
@@ -159,10 +158,10 @@ if __name__ == "__main__":
                     durations.append(duration)
                     scores.append(int(global_ep_r))
 
-                    if handleArguments().load_model and handleArguments().normalized_plot and not handleArguments().save_data:
+                    if handleArguments().load_model and handleArguments().normalized_plot:
                         if np.mean(scores[-min(100, len(scores)):]) >= 400 and global_ep >= 100:
                             stop_processes = True
-                    elif handleArguments().normalized_plot and not handleArguments().save_data:
+                    elif handleArguments().normalized_plot:
                         if np.mean(scores[-min(10, len(scores)):]) >= 400 and global_ep >= 10:
                             stop_processes = True
                     else:

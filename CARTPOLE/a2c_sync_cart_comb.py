@@ -120,10 +120,10 @@ class Worker(mp.Process):
                            self.action_queue, self.name)
 
                     scores.append(int(self.g_ep_r.value))
-                    if handleArguments().load_model and handleArguments().normalized_plot and not handleArguments().save_data:
+                    if handleArguments().load_model and handleArguments().normalized_plot:
                         if np.mean(scores[-min(100, len(scores)):]) >= 400 and self.g_ep.value >= 100:
                             stop_processes = True
-                    elif handleArguments().normalized_plot and not handleArguments().save_data:
+                    elif handleArguments().normalized_plot:
                         if np.mean(scores[-min(10, len(scores)):]) >= 400 and self.g_ep.value >= mp.cpu_count():
                             stop_processes = True
                     else:
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     timedelta_sum -= timedelta_sum
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 
-    if handleArguments().normalized_plot:
+    if handleArguments().normalized_plot and not handleArguments().save_data:
         runs = 3
     else:
         runs = 1
