@@ -20,7 +20,7 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
 GAMMA = 0.9
-MAX_EP = 2000
+MAX_EP = 100
 
 env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
@@ -120,10 +120,10 @@ class Worker(mp.Process):
                            self.action_queue, self.name)
 
                     scores.append(int(self.g_ep_r.value))
-                    if handleArguments().load_model and handleArguments().normalized_plot:
+                    if handleArguments().load_model and handleArguments().normalized_plot and not handleArguments().save_data:
                         if np.mean(scores[-min(100, len(scores)):]) >= 400 and self.g_ep.value >= 100:
                             stop_processes = True
-                    elif handleArguments().normalized_plot:
+                    elif handleArguments().normalized_plot and not handleArguments().save_data:
                         if np.mean(scores[-min(10, len(scores)):]) >= 400 and self.g_ep.value >= mp.cpu_count():
                             stop_processes = True
                     else:
@@ -219,6 +219,10 @@ if __name__ == "__main__":
             plotter_ep_time(ax1, durations)
             plotter_ep_rew(ax2, res)
 
+        if handleArguments().save_data:
+            scores = np.asarray([res])
+            np.savetxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart.csv', scores, delimiter=',')
+
     font = {'family': 'serif',
             'color': 'darkred',
             'weight': 'normal',
@@ -227,6 +231,11 @@ if __name__ == "__main__":
     plt.text(0, 450, f"Average Duration: {timedelta_sum}", fontdict=font)
     plt.title("Synchronous A2C-Cartpole", fontsize = 16)
     plt.show()
+
+    if handleArguments().save_data:
+        scores = np.asarray([res])
+        np.savetxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb.csv', res, delimiter=',')
+
 
     sys.exit()
 

@@ -19,7 +19,7 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 
 GAMMA = 0.9
-MAX_EP = 3000
+MAX_EP = 2000
 
 env = gym.make('CartPole-v0').unwrapped
 N_S = env.observation_space.shape[0]
@@ -83,6 +83,10 @@ if __name__ == "__main__":
     timedelta_sum = datetime.now()
     timedelta_sum -= timedelta_sum
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+
+    # Global variables for episodes
+    durations = []
+    scores = []
     actions = []
 
     if handleArguments().normalized_plot:
@@ -103,9 +107,6 @@ if __name__ == "__main__":
 
         opt = SharedAdam(gnet.parameters(), lr=0.005, betas=(0.92, 0.999))  # global optimizer
 
-        # Global variables for episodes
-        durations = []
-        scores = []
         global_ep, global_ep_r, global_time_done = 1, 0., 0.
         name = 'w00'
         total_step = 1
@@ -157,10 +158,10 @@ if __name__ == "__main__":
                     durations.append(duration)
                     scores.append(int(global_ep_r))
 
-                    if handleArguments().load_model and handleArguments().normalized_plot:
+                    if handleArguments().load_model and handleArguments().normalized_plot and not handleArguments().save_data:
                         if np.mean(scores[-min(100, len(scores)):]) >= 400 and global_ep >= 100:
                             stop_processes = True
-                    elif handleArguments().normalized_plot:
+                    elif handleArguments().normalized_plot and not handleArguments().save_data:
                         if np.mean(scores[-min(10, len(scores)):]) >= 400 and global_ep >= 10:
                             stop_processes = True
                     else:
@@ -204,5 +205,10 @@ if __name__ == "__main__":
     plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("Vanilla A2C-Cartpole", fontsize=16)
     plt.show()
+
+    if handleArguments().save_data:
+        scores = np.asarray([scores])
+        np.savetxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb.csv', scores, delimiter=',')
+
 
     sys.exit()

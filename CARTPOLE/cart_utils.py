@@ -99,7 +99,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, global_time_done
         with global_ep_r.get_lock():
             global_ep_r.value = ep_r
         print(name, "Ep:", global_ep.value, "| Epsidode Reward: %.0f" % global_ep_r.value, "| Duration:",
-              round(time_done, 5))
+              time_done)
     res_queue.put(global_ep_r.value)
     time_queue.put(time_done)
     action_queue.put(a)
@@ -126,7 +126,7 @@ def plotter_ep_time_norm(ax1, duration_episode):
 
 def plotter_ep_time(ax1, duration_episode):
     ax1.plot(duration_episode)
-    ax1.set_ylim(0,0.04)
+    ax1.set_ylim(0,0.0001)
     ax1.set_ylabel('Duration of Episode')
 
 
@@ -171,6 +171,7 @@ def handleArguments():
     parser.add_argument("--demo_mode", "-d", help="Renders the gym environment", action="store_true")
     parser.add_argument("--load_model", "-l", help="Loads the model of previously gained training data", action="store_true")
     parser.add_argument("--normalized_plot", "-n", help="Shows plot of normalized reward", action="store_true")
+    parser.add_argument("--save_data", "-s", help="Saves data for algo_compare.py", action="store_true")
     global args
     args = parser.parse_args()
     return args
