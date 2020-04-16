@@ -1,5 +1,0 @@
-A2C Cartpole Performance:
-
-- Low performing, but stable algorithm with episode length of about 0.007 to 0.01 seconds
-- Confidence of 95% to have action "right" between 40% and 60% in average, 32% to 52% also appeared
-- Probability of getting action "right is 50% when trained

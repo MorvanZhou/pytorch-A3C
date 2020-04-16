@@ -1,6 +1,0 @@
-A3C Cartpole Performance:
-
-- Fastest algorithm with average training duration of 30sec
-- Confidence of 95% to have action "right" between 40% and 60% in average, another sample showed 34% to 54%
-- Testing results in steep improvement and clearing task within 300 episodes, although sometimes weak run close to threshold is sometimes result as well
-- Running saved model from Vanilla A2C achieves high performing results, seems like multiprocessing inhibits algorithm
