@@ -228,7 +228,7 @@ if __name__ == "__main__":
             'weight': 'normal',
             'size': 8,
             }
-    plt.text(0, 450, f"Average Duration: {timedelta_sum}", fontdict=font)
+    #plt.text(0, 450, f"Average Duration: {timedelta_sum}", fontdict=font)
     plt.title("Synchronous A2C-Cartpole", fontsize = 16)
     plt.show()
 

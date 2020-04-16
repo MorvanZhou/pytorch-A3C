@@ -120,7 +120,7 @@ def plotter_ep_rew(ax2, scores):
 
 def plotter_ep_time_norm(ax1, duration_episode):
     ax1.plot(duration_episode)
-    ax1.set_ylim(0,0.0005)
+    ax1.set_ylim(0,0.01)
     ax1.set_ylabel('Duration of Episode')
 
 

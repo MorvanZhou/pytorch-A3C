@@ -83,17 +83,17 @@ if __name__ == "__main__":
     timedelta_sum -= timedelta_sum
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 
-    # Global variables for episodes
-    durations = []
-    scores = []
-    actions = []
-
     if handleArguments().normalized_plot and not handleArguments().save_data:
         runs = 3
     else:
         runs = 1
 
     for i in range(runs):
+        # Global variables for episodes
+        durations = []
+        scores = []
+        actions = []
+
         starttime = datetime.now()
 
         # load global network
@@ -155,7 +155,7 @@ if __name__ == "__main__":
                               "| Duration:",
                               round(global_time_done, 5))
 
-                    durations.append(duration)
+                    durations.append(global_time_done)
                     scores.append(int(global_ep_r))
 
                     if handleArguments().load_model and handleArguments().normalized_plot:
@@ -197,21 +197,23 @@ if __name__ == "__main__":
         else:
             plotter_ep_time(ax1, durations)
             plotter_ep_rew(ax2, scores)
+
+        if handleArguments().save_data:
+            if handleArguments().load_model:
+                scores = np.asarray([scores])
+                np.savetxt('CARTPOLE/cart_save_plot_data/a2c_cart_test.csv', scores, delimiter=',')
+            else:
+                scores = np.asarray([scores])
+                np.savetxt('CARTPOLE/cart_save_plot_data/a2c_cart.csv', scores, delimiter=',')
+
     font = {'family': 'serif',
             'color': 'darkred',
             'weight': 'normal',
             'size': 8
             }
-    plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    #plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("Vanilla A2C-Cartpole", fontsize = 16)
     plt.show()
 
-    if handleArguments().save_data:
-        if handleArguments().load_model:
-            scores = np.asarray([scores])
-            np.savetxt('CARTPOLE/cart_save_plot_data/a2c_cart_test.csv', scores, delimiter=',')
-        else:
-            scores = np.asarray([scores])
-            np.savetxt('CARTPOLE/cart_save_plot_data/a2c_cart.csv', scores, delimiter=',')
 
     sys.exit()
