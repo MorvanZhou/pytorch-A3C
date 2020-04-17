@@ -203,7 +203,7 @@ if __name__ == '__main__':
     timedelta_sum -= timedelta_sum
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 
-    if handleArguments().normalized_plot:
+    if handleArguments().normalized_plot and not handleArguments().save_data:
         runs = 3
     else:
         runs = 1
@@ -214,7 +214,7 @@ if __name__ == '__main__':
         # load global network
         if handleArguments().load_model:
             model = Net(len(actions))
-            model = torch.load("./VIZDOOM/doom_save_model/a3c_doom.pt")
+            model = torch.load("./VIZDOOM/doom_save_model/a2c_doom.pt")
             model.eval()
         else:
             model = Net(len(actions))
@@ -253,7 +253,7 @@ if __name__ == '__main__':
 
         if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
             print("Save model")
-            torch.save(model, "./VIZDOOM/doom_save_model/a2c_doom.pt")
+            torch.save(model, "./VIZDOOM/doom_save_model/a3c_doom.pt")
         elif handleArguments().load_model:
             print("Testing! No need to save model.")
         else:
@@ -279,6 +279,14 @@ if __name__ == '__main__':
             plotter_ep_time(ax1, durations)
             plotter_ep_rew(ax2, res)
 
+        if handleArguments().save_data:
+            if handleArguments().load_model:
+                scores = np.asarray([res])
+                np.savetxt('VIZDOOM/doom_save_plot_data/a3c_doom_test.csv', scores, delimiter=',')
+            else:
+                scores = np.asarray([res])
+                np.savetxt('VIZDOOM/doom_save_plot_data/a3c_doom.csv', scores, delimiter=',')
+
     font = {'family': 'serif',
             'color': 'darkred',
             'weight': 'normal',
@@ -286,8 +294,8 @@ if __name__ == '__main__':
             }
     if handleArguments().normalized_plot:
         plt.text(0, 50, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    else:
-        plt.text(0, 500, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    #else:
+    #    plt.text(0, 500, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("A3C-Vizdoom", fontsize=16)
     plt.show()
 
