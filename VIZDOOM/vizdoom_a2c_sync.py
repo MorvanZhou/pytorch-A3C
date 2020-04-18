@@ -280,7 +280,7 @@ if __name__ == '__main__':
         action = []
         global_ep, global_ep_r, global_time_done = mp.Value('i', 0), mp.Value('d', 0.), mp.Value('d', 0.)
         res_queue, time_queue, action_queue = mp.Queue(), mp.Queue(), mp.Queue()
-        loop = 0
+        loop = 20
 
         while global_ep.value < MAX_EP:
             loop += 1
@@ -320,7 +320,7 @@ if __name__ == '__main__':
                 w.join()
                 w.terminate()
 
-            if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
+            if not handleArguments().load_model and global_ep.value >= 10:
                 print("Save model")
                 torch.save(model, "./VIZDOOM/doom_save_model/a2c_sync_doom.pt")
             elif handleArguments().load_model:
@@ -336,10 +336,10 @@ if __name__ == '__main__':
                     scores = np.asarray([res])
                     np.savetxt(f"VIZDOOM/doom_save_plot_data/a2c_sync_doom{loop}.csv", scores, delimiter=',')
 
-        endtime = datetime.now()
-        timedelta = endtime - starttime
-        print("Number of Episodes: ", global_ep.value, " | Finished within: ", timedelta)
-        timedelta_sum += timedelta / 3
+            endtime = datetime.now()
+            timedelta = endtime - starttime
+            print("Number of Episodes: ", global_ep.value, " | Finished within: ", timedelta)
+        #timedelta_sum += timedelta / 3
 
         # Get results for confidence intervall
         # if handleArguments().load_model:
@@ -363,9 +363,9 @@ if __name__ == '__main__':
             'size': 8
             }
     if handleArguments().normalized_plot:
-        plt.text(0, 50, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    else:
-        plt.text(0, 400, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+        plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    #else:
+     #   plt.text(0, 400, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("Synchronous A2C-Vizdoom", fontsize=16)
     plt.show()
 

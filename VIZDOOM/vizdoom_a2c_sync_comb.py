@@ -318,7 +318,7 @@ if __name__ == '__main__':
                 w.join()
                 w.terminate()
 
-            if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
+            if not handleArguments().load_model and global_ep.value >= 10:
                 print("Save model")
                 torch.save(model, "./VIZDOOM/doom_save_model/a2c_sync_doom_comb.pt")
             elif handleArguments().load_model:
@@ -361,9 +361,9 @@ if __name__ == '__main__':
             'size': 8
             }
     if handleArguments().normalized_plot:
-        plt.text(0, 50, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    else:
-        plt.text(0, 400, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+        plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    #else:
+     #   plt.text(0, 400, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("Synchronous A2C Vizdoom (shared NN)", fontsize=16)
     plt.show()
 

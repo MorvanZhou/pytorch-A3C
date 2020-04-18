@@ -247,13 +247,13 @@ if __name__ == '__main__':
 
         [w.join() for w in workers]
 
-        if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
-            print("Save model")
-            torch.save(model, "./VIZDOOM/doom_save_model/a3c_doom_comb.pt")
-        elif handleArguments().load_model:
+        #if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
+        print("Save model")
+        torch.save(model, "./VIZDOOM/doom_save_model/a3c_doom_comb.pt")
+        if handleArguments().load_model:
             print("Testing! No need to save model.")
-        else:
-            print("Failed to train agent. Model was not saved")
+        #else:
+         #   print("Failed to train agent. Model was not saved")
 
         endtime = datetime.now()
         timedelta = endtime - starttime
@@ -289,7 +289,7 @@ if __name__ == '__main__':
             'size': 8
             }
     if handleArguments().normalized_plot:
-        plt.text(0, 50, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+        plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     #else:
     #    plt.text(0, 500, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("A3C-Vizdoom (shared NN)", fontsize=16)

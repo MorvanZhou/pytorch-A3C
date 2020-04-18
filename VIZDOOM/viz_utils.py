@@ -102,8 +102,8 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, global_time_done
 
 def plotter_ep_rew_norm(ax2, scores):
     ax2.plot(scores)
-    #ax2.axhline(y=200.00, color='r')
-    ax2.set_ylim(-120,300)
+    ax2.axhline(y=0, color='r')
+    ax2.set_ylim(-120,500)
     ax2.set_ylabel('Reward per Episode')
     ax2.set_xlabel('Episode')
 

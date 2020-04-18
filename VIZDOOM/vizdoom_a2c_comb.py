@@ -260,7 +260,7 @@ if __name__ == '__main__':
             'size': 8
             }
     if handleArguments().normalized_plot:
-        plt.text(0, 250, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+        plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("Vanilla A2C-Vizdoom (shared NN)", fontsize = 16)
     plt.show()
 

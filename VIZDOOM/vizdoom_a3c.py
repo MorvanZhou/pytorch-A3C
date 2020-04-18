@@ -291,7 +291,7 @@ if __name__ == '__main__':
             'size': 8
             }
     if handleArguments().normalized_plot:
-        plt.text(0, 50, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+        plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     #else:
     #    plt.text(0, 500, f"Average Training Duration: {timedelta_sum}", fontdict=font)
     plt.title("A3C-Vizdoom", fontsize=16)

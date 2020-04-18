@@ -19,8 +19,8 @@ def handleArguments():
 
 def plotter_ep_rew_all(scores, label):
     plt.plot(scores, label=label)
-    #plt.axhline(y=200.00, color='r')
-    plt.ylim(0,300)
+    plt.axhline(y=0, color='r')
+    plt.ylim(-120,450)
     plt.ylabel('Reward per Episode')
     plt.xlabel('Episode')
 
