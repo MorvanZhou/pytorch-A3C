@@ -4,6 +4,7 @@ Functions that use multiple times
 
 from torch import nn
 import torch
+import torch.multiprocessing as mp
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
@@ -43,11 +44,12 @@ def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma):
     # calculate local gradients and push local parameters to global
     opt.zero_grad()
     loss.backward()
+
+    # push and pull global parameters
     for lp, gp in zip(lnet.parameters(), gnet.parameters()):
         gp._grad = lp.grad
-    opt.step()
 
-    # pull global parameters
+    opt.step()
     lnet.load_state_dict(gnet.state_dict())
 
 
@@ -91,7 +93,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, global_time_done
     else:
         with global_ep_r.get_lock():
             global_ep_r.value = ep_r
-        print(name, "Ep:", global_ep.value, "| Epsidode Reward: %.0f" % global_ep_r.value, "| Duration:",
+        print(name, "Ep:", global_ep.value, "| Episode Reward: %.0f" % global_ep_r.value, "| Duration:",
               time_done)
     res_queue.put(global_ep_r.value)
     time_queue.put(time_done)
