@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from tqdm import trange
 from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution
 
-from viz_utils import v_wrap, set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, push_and_pull, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
+from viz_utils import v_wrap, set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, push_and_pull, optimize, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
 import sys
@@ -61,22 +61,20 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.s_dim = 45
         self.a_dim = a_dim
-        self.pi1 = nn.Linear(self.s_dim, 120)
-        self.pi2 = nn.Linear(120, 360)
+        self.pi1 = nn.Linear(self.s_dim, 240)
+        self.pi2 = nn.Linear(240, 360)
         self.pi3 = nn.Linear(360, a_dim)
-        self.v1 = nn.Linear(self.s_dim, 120)
-        self.v2 = nn.Linear(120, 360)
+        self.v2 = nn.Linear(240, 360)
         self.v3 = nn.Linear(360, 1)
 
-        set_init([self.pi1, self.pi2, self.pi3, self.v1, self.v2, self.v3])
+        set_init([self.pi1, self.pi2, self.pi3, self.v2, self.v3])
         self.distribution = torch.distributions.Categorical
 
     def forward(self, x):
         pi1 = F.relu(self.pi1(x))
         pi2 = F.relu(self.pi2(pi1))
         logits = self.pi3(pi2)
-        v1 = F.relu(self.v1(x))
-        v2 = F.relu(self.v2(v1))
+        v2 = F.relu(self.v2(pi1))
         values = self.v3(v2)
         return logits, values
 
@@ -124,7 +122,7 @@ class Net(nn.Module):
 
 
 class Worker(mp.Process):
-    def __init__(self, gnet, opt, global_ep, global_ep_r, global_time_done, res_queue, time_queue, action_queue, name):
+    def __init__(self, gnet, opt, global_ep, inner_ep, global_ep_r, global_time_done, res_queue, time_queue, action_queue, name):
         super(Worker, self).__init__()
         self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.g_time = global_ep, global_ep_r, global_time_done
@@ -132,17 +130,24 @@ class Worker(mp.Process):
         self.lnet = Net(len(actions))           # local network
         self.game = initialize_vizdoom(config_file_path)
         self.res_queue, self.time_queue, self.action_queue = res_queue, time_queue, action_queue
+        self.inner_ep = inner_ep
+        #self.sleep_max = sleep_max
 
     def run(self):
         total_step = 1
         stop_processes = False
         scores = []
-
-        while self.g_ep.value < MAX_EP and stop_processes is False:
+        sleep = 15
+        superdone = 0
+        cpu_count = []
+        while self.inner_ep.value < (mp.cpu_count()*3) and stop_processes is False:
             self.game.new_episode()
             state = game_state(self.game)
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
+
+            #print("Outside:", sleep)
+            print("initialized:", self.name)
             while True:
                 start = time.time()
                 done = False
@@ -162,16 +167,63 @@ class Worker(mp.Process):
 
                 if done or total_step % UPDATE_GLOBAL_ITER == 0:  # update network
                     # sync
-                    push_and_pull(opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                    game.get_total_reward()
-                    buffer_s, buffer_a, buffer_r = [], [], []
+                    optimize(opt, self.lnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
+
+                    #game.get_total_reward()
+                    #buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:
+                        #print("done with:", self.name)
+                        self.inner_ep.value += 1
+                        print ("Inner Ep:", self.inner_ep.value)
                         end = time.time()
                         time_done = end - start
+                        #print ("Duration:", time_done)
+                        #print("Whats the time?", sleep)
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, self.g_time, time_done, a,
                                self.action_queue, self.name)
+                        #print("hore...")
+                        #push_and_pull(opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA, True, self.g_ep)
+                        #time.sleep(20)
+                        #print(self.sync.get())
+                            #print("Pull global model")
+                            #self.lnet.load_state_dict(self.gnet.state_dict())
+                        #print("here...")
 
+                        for lp, gp in zip(self.lnet.parameters(), self.gnet.parameters()):
+                             gp._grad = lp.grad
+
+
+                        #if self.sync.get() == True:
+                        #    print("Agent", self.name, "gets in sync")
+                        #    self.agent_count.append(1)
+                        #    while len(self.agent_count) != mp.cpu_count():
+                        #        print(len(self.agent_count), self.agent_count)
+                        #        time.sleep(15)
+#
+                        #    for lp, gp in zip(self.lnet.parameters(), self.gnet.parameters()):
+                        #        gp._grad = lp.grad
+#
+                        #    print("loading state dict")
+                        #    self.lnet.load_state_dict(self.gnet.state_dict())
+                        #    if len(self.agent_count) >= 12:
+                        #        self.agent_count = []
+                        #    break
+
+
+                        #if superdone % 10 == 0:
+#
+                        #    sleep = 120 - 10 * len(self.sync)
+                        #    print(sleep)
+                        #    print("Pull global model")
+                        #    for lp, gp in zip(self.lnet.parameters(), self.gnet.parameters()):
+                        #        gp._grad = lp.grad
+                        #        opt.step()
+                        #    time.sleep(sleep)
+                        #    self.lnet.load_state_dict(self.gnet.state_dict())
+                        #    if len(self.sync) == mp.cpu_count():
+                        #        self.sync = []
+                        #    break
                         scores.append(int(self.g_ep_r.value))
 
                         if handleArguments().load_model and handleArguments().normalized_plot:
@@ -194,7 +246,7 @@ class Worker(mp.Process):
 
 if __name__ == '__main__':
 
-    print ("Starting A3C Agent for Vizdoom-DeadlyCorridor")
+    print ("Starting A2C-Sync Agent for Vizdoom-DeadlyCorridor")
     time.sleep(3)
 
     timedelta_sum = datetime.now()
@@ -212,50 +264,75 @@ if __name__ == '__main__':
         # load global network
         if handleArguments().load_model:
             model = Net(len(actions))
-            model = torch.load("./VIZDOOM/doom_save_model/a3c_doom.pt")
+            model = torch.load("./VIZDOOM/doom_save_model/a2c_sync_doom_comb.pt")
             model.eval()
         else:
             model = Net(len(actions))
 
         # global optimizer
         opt = SharedAdam(model.parameters(), lr=0.001, betas=(0.92, 0.999))
-        global_ep, global_ep_r, global_time_done = mp.Value('i', 0), mp.Value('d', 0.), mp.Value('d', 0.)
-        res_queue, time_queue, action_queue = mp.Queue(), mp.Queue(), mp.Queue()
-        # parallel training
-        if handleArguments().load_model:
-            workers = [Worker(model, opt, global_ep, global_ep_r, global_time_done,res_queue, time_queue, action_queue, i) for i in range(1)]
-            [w.start() for w in workers]
-        else:
-            workers = [Worker(model, opt, global_ep, global_ep_r, global_time_done, res_queue, time_queue, action_queue, i) for i in
-                       range(worker_num)]
-            [w.start() for w in workers]
 
         # record episode-reward and duration-episode to plot
         res = []
         durations = []
         action = []
-        while True:
-            r = res_queue.get()
-            t = time_queue.get()
-            a = action_queue.get()
-            if r is not None:
-                res.append(r)
-            if t is not None:
-                durations.append(t)
-            if a is not None:
-                action.append(a)
+        global_ep, global_ep_r, global_time_done = mp.Value('i', 0), mp.Value('d', 0.), mp.Value('d', 0.)
+        res_queue, time_queue, action_queue = mp.Queue(), mp.Queue(), mp.Queue()
+        loop = 0
+
+        while global_ep.value < MAX_EP:
+            loop += 1
+            print ("loop: ", loop)
+            # parallel training
+            inner_ep = mp.Value('i', 0)
+            manager = mp.Manager()
+            sync, agent_count = mp.Queue(), manager.list()
+            if handleArguments().load_model:
+                workers = [Worker(model, opt, global_ep, global_ep_r, global_time_done,res_queue, time_queue, action_queue, i, sync) for i in range(1)]
+                [w.start() for w in workers]
             else:
-                break
+                workers = [Worker(model, opt, global_ep, inner_ep, global_ep_r, global_time_done, res_queue, time_queue, action_queue, i) for i in
+                           range(worker_num)]
+                [w.start() for w in workers]
 
-        [w.join() for w in workers]
 
-        if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
-            print("Save model")
-            torch.save(model, "./VIZDOOM/doom_save_model/a3c_doom.pt")
-        elif handleArguments().load_model:
-            print("Testing! No need to save model.")
-        else:
-            print("Failed to train agent. Model was not saved")
+            while True:
+                #sync.put(False)
+                #if global_ep.value % (mp.cpu_count()*3) == 0 and global_ep.value != 0:
+                #    for w in workers:
+                #        sync.put(True)
+                r = res_queue.get()
+                t = time_queue.get()
+                a = action_queue.get()
+                if r is not None:
+                    res.append(r)
+                if t is not None:
+                    durations.append(t)
+                if a is not None:
+                    action.append(a)
+                else:
+                    break
+
+
+            for w in workers:
+                w.join()
+                w.terminate()
+
+            if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
+                print("Save model")
+                torch.save(model, "./VIZDOOM/doom_save_model/a2c_sync_doom_comb.pt")
+            elif handleArguments().load_model:
+                print("Testing! No need to save model.")
+            else:
+                print("Failed to train agent. Model was not saved")
+
+            if handleArguments().save_data:
+                if handleArguments().load_model:
+                    scores = np.asarray([res])
+                    np.savetxt(f"VIZDOOM/doom_save_plot_data/a2c_sync_doom_comb_test{loop}.csv", scores, delimiter=',')
+                else:
+                    scores = np.asarray([res])
+                    np.savetxt(f"VIZDOOM/doom_save_plot_data/a2c_sync_doom_comb{loop}.csv", scores, delimiter=',')
 
         endtime = datetime.now()
         timedelta = endtime - starttime
@@ -277,13 +354,6 @@ if __name__ == '__main__':
             plotter_ep_time(ax1, durations)
             plotter_ep_rew(ax2, res)
 
-        if handleArguments().save_data:
-            if handleArguments().load_model:
-                scores = np.asarray([res])
-                np.savetxt('VIZDOOM/doom_save_plot_data/a3c_doom_test.csv', scores, delimiter=',')
-            else:
-                scores = np.asarray([res])
-                np.savetxt('VIZDOOM/doom_save_plot_data/a3c_doom.csv', scores, delimiter=',')
 
     font = {'family': 'serif',
             'color': 'darkred',
@@ -292,9 +362,9 @@ if __name__ == '__main__':
             }
     if handleArguments().normalized_plot:
         plt.text(0, 50, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    #else:
-    #    plt.text(0, 500, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    plt.title("A3C-Vizdoom", fontsize=16)
+    else:
+        plt.text(0, 400, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    plt.title("Synchronous A2C Vizdoom (shared NN)", fontsize=16)
     plt.show()
 
     game.close()

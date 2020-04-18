@@ -61,22 +61,22 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.s_dim = 45
         self.a_dim = a_dim
-        self.pi1 = nn.Linear(self.s_dim, 120)
-        self.pi2 = nn.Linear(120, 360)
+        self.pi1 = nn.Linear(self.s_dim, 240)
+        self.pi2 = nn.Linear(240, 360)
         self.pi3 = nn.Linear(360, a_dim)
-        self.v1 = nn.Linear(self.s_dim, 120)
-        self.v2 = nn.Linear(120, 360)
+        self.v2 = nn.Linear(240, 360)
         self.v3 = nn.Linear(360, 1)
 
-        set_init([self.pi1, self.pi2, self.pi3, self.v1, self.v2, self.v3])
+        #self.optimizer = torch.optim.SGD(self.parameters(), FLAGS.learning_rate)
+
+        set_init([self.pi1, self.pi2, self.pi3, self.v2, self.v3])
         self.distribution = torch.distributions.Categorical
 
     def forward(self, x):
         pi1 = F.relu(self.pi1(x))
         pi2 = F.relu(self.pi2(pi1))
         logits = self.pi3(pi2)
-        v1 = F.relu(self.v1(x))
-        v2 = F.relu(self.v2(v1))
+        v2 = F.relu(self.v2(pi1))
         values = self.v3(v2)
         return logits, values
 
@@ -144,7 +144,7 @@ if __name__ == '__main__':
         # load global network
         if handleArguments().load_model:
             model = Net(len(actions))
-            model = torch.load("./VIZDOOM/doom_save_model/a2c_doom.pt")
+            model = torch.load("./VIZDOOM/doom_save_model/a2c_doom_comb.pt")
             model.eval()
         else:
             model = Net(len(actions))
@@ -221,7 +221,7 @@ if __name__ == '__main__':
 
         if np.mean(scores[-min(10, len(scores)):]) >= 0 and not handleArguments().load_model and global_ep >= 10:
             print("Save model")
-            torch.save(model, "./VIZDOOM/doom_save_model/a2c_doom.pt")
+            torch.save(model, "./VIZDOOM/doom_save_model/a2c_doom_comb.pt")
         elif handleArguments().load_model:
             print ("Testing! No need to save model.")
         else:
@@ -249,10 +249,10 @@ if __name__ == '__main__':
         if handleArguments().save_data:
             if handleArguments().load_model:
                 scores = np.asarray([scores])
-                np.savetxt('VIZDOOM/doom_save_plot_data/a2c_doom_test.csv', scores, delimiter=',')
+                np.savetxt('VIZDOOM/doom_save_plot_data/a2c_doom_comb_test.csv', scores, delimiter=',')
             else:
                 scores = np.asarray([scores])
-                np.savetxt('VIZDOOM/doom_save_plot_data/a2c_doom.csv', scores, delimiter=',')
+                np.savetxt('VIZDOOM/doom_save_plot_data/a2c_doom_comb.csv', scores, delimiter=',')
 
     font = {'family': 'serif',
             'color': 'darkred',
@@ -261,7 +261,7 @@ if __name__ == '__main__':
             }
     if handleArguments().normalized_plot:
         plt.text(0, 250, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    plt.title("Vanilla A2C-Vizdoom", fontsize = 16)
+    plt.title("Vanilla A2C-Vizdoom (shared NN)", fontsize = 16)
     plt.show()
 
     game.close()
