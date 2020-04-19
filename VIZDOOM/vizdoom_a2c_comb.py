@@ -55,6 +55,10 @@ print("Statesize:" , statesize, "\n")
 print ("Action Size: ", n)
 print("All possible Actions:", actions, "\n", "Total: ", len(actions))
 
+attack = []
+for a in range(len(actions)):
+    if actions[a][2] == 1:
+        attack.append(a)
 
 class Net(nn.Module):
     def __init__(self, a_dim):
@@ -171,7 +175,12 @@ if __name__ == '__main__':
                 done = False
 
                 a = model.choose_action(state)
-                action.append(a)
+                for i in range(len(attack)):
+                    if attack[i] == a:
+                        action.append(1)
+                    else:
+                        action.append(0)
+
                 r = game.make_action(actions[a], frame_repeat)
 
                 if game.is_episode_finished():
@@ -187,8 +196,6 @@ if __name__ == '__main__':
                 if done or total_step % UPDATE_MODEL == 0:  # update network
                     # sync
                     optimize(opt, model, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                    #print("Acion_array:", action)
-                    print("Total Reward:", game.get_total_reward())
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:
@@ -219,7 +226,7 @@ if __name__ == '__main__':
                 state = s_
                 total_step += 1
 
-        if np.mean(scores[-min(10, len(scores)):]) >= 0 and not handleArguments().load_model and global_ep >= 10:
+        if not handleArguments().load_model and global_ep >= 10:
             print("Save model")
             torch.save(model, "./VIZDOOM/doom_save_model/a2c_doom_comb.pt")
         elif handleArguments().load_model:
@@ -233,10 +240,7 @@ if __name__ == '__main__':
         timedelta_sum += timedelta/3
 
         # Get results for confidence intervall
-        #if handleArguments().load_model:
-         #   confidence_intervall(action, True)
-        #else:
-         #   confidence_intervall(action)
+        confidence_intervall(action)
 
         # Plot results
         if handleArguments().normalized_plot:

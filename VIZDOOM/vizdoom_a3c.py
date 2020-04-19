@@ -56,6 +56,11 @@ print("Action Size: ", n)
 print("All possible Actions:", actions, "\n", "Total: ", len(actions))
 print("Number of used CPUs: ", worker_num)
 
+attack = []
+for a in range(len(actions)):
+    if actions[a][2] == 1:
+        attack.append(a)
+
 class Net(nn.Module):
     def __init__(self, a_dim):
         super(Net, self).__init__()
@@ -147,6 +152,11 @@ class Worker(mp.Process):
                 start = time.time()
                 done = False
                 a = self.lnet.choose_action(state)
+                for i in range(len(attack)):
+                    if attack[i] == a:
+                        self.action_queue.put(1)
+                    else:
+                        self.action_queue.put(0)
 
                 r = self.game.make_action(actions[a], frame_repeat)
 
@@ -174,14 +184,6 @@ class Worker(mp.Process):
 
                         scores.append(int(self.g_ep_r.value))
 
-                        if handleArguments().load_model and handleArguments().normalized_plot:
-                            if np.mean(scores[-min(100, len(scores)):]) >= 50 and self.g_ep.value >= 100:
-                                stop_processes = True
-                        elif handleArguments().normalized_plot:
-                            if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 50 and self.g_ep.value >= mp.cpu_count():
-                                stop_processes = True
-                        else:
-                            stop_processes = False
                         break
 
                 state = s_
@@ -189,7 +191,6 @@ class Worker(mp.Process):
 
         self.time_queue.put(None)
         self.res_queue.put(None)
-        self.action_queue.put(None)
 
 
 if __name__ == '__main__':
@@ -249,13 +250,11 @@ if __name__ == '__main__':
 
         [w.join() for w in workers]
 
-        if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
+        if not handleArguments().load_model and global_ep.value >= 10:
             print("Save model")
             torch.save(model, "./VIZDOOM/doom_save_model/a3c_doom.pt")
         elif handleArguments().load_model:
             print("Testing! No need to save model.")
-        else:
-            print("Failed to train agent. Model was not saved")
 
         endtime = datetime.now()
         timedelta = endtime - starttime

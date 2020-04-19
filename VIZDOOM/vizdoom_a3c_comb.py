@@ -56,6 +56,11 @@ print("Action Size: ", n)
 print("All possible Actions:", actions, "\n", "Total: ", len(actions))
 print("Number of used CPUs: ", worker_num)
 
+attack = []
+for a in range(len(actions)):
+    if actions[a][2] == 1:
+        attack.append(a)
+
 class Net(nn.Module):
     def __init__(self, a_dim):
         super(Net, self).__init__()
@@ -145,6 +150,11 @@ class Worker(mp.Process):
                 start = time.time()
                 done = False
                 a = self.lnet.choose_action(state)
+                for i in range(len(attack)):
+                    if attack[i] == a:
+                        action_queue.put(1)
+                    else:
+                        action_queue.put(0)
 
                 r = self.game.make_action(actions[a], frame_repeat)
 
@@ -161,7 +171,6 @@ class Worker(mp.Process):
                 if done or total_step % UPDATE_GLOBAL_ITER == 0:  # update network
                     # sync
                     push_and_pull(opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                    game.get_total_reward()
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:
@@ -172,14 +181,6 @@ class Worker(mp.Process):
 
                         scores.append(int(self.g_ep_r.value))
 
-                        if handleArguments().load_model and handleArguments().normalized_plot:
-                            if np.mean(scores[-min(100, len(scores)):]) >= 50 and self.g_ep.value >= 100:
-                                stop_processes = True
-                        elif handleArguments().normalized_plot:
-                            if np.mean(scores[-min(mp.cpu_count(), len(scores)):]) >= 50 and self.g_ep.value >= mp.cpu_count():
-                                stop_processes = True
-                        else:
-                            stop_processes = False
                         break
 
                 state = s_
@@ -187,7 +188,6 @@ class Worker(mp.Process):
 
         self.time_queue.put(None)
         self.res_queue.put(None)
-        self.action_queue.put(None)
 
 
 if __name__ == '__main__':
@@ -247,13 +247,11 @@ if __name__ == '__main__':
 
         [w.join() for w in workers]
 
-        #if np.mean(res[-min(10, len(res)):]) >= 0 and not handleArguments().load_model and global_ep.value >= 10:
-        print("Save model")
-        torch.save(model, "./VIZDOOM/doom_save_model/a3c_doom_comb.pt")
+        if not handleArguments().load_model and global_ep.value >= 10:
+            print("Save model")
+            torch.save(model, "./VIZDOOM/doom_save_model/a3c_doom_comb.pt")
         if handleArguments().load_model:
             print("Testing! No need to save model.")
-        #else:
-         #   print("Failed to train agent. Model was not saved")
 
         endtime = datetime.now()
         timedelta = endtime - starttime
@@ -261,13 +259,12 @@ if __name__ == '__main__':
         timedelta_sum += timedelta / 3
 
         # Get results for confidence intervall
-        # if handleArguments().load_model:
-        #   confidence_intervall(action, True)
-        # else:
-        #   confidence_intervall(action)
+        if handleArguments().load_model:
+          confidence_intervall(action, True)
+        else:
+          confidence_intervall(action)
 
         # Plot results
-
         if handleArguments().normalized_plot:
             plotter_ep_time_norm(ax1, durations)
             plotter_ep_rew_norm(ax2, res)
