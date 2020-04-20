@@ -150,11 +150,10 @@ class Worker(mp.Process):
                 start = time.time()
                 done = False
                 a = self.lnet.choose_action(state)
-                for i in range(len(attack)):
-                    if attack[i] == a:
-                        action_queue.put(1)
-                    else:
-                        action_queue.put(0)
+                if a in attack:
+                    self.action_queue.put(1)
+                else:
+                    self.action_queue.put(0)
 
                 r = self.game.make_action(actions[a], frame_repeat)
 
@@ -176,11 +175,8 @@ class Worker(mp.Process):
                     if done:
                         end = time.time()
                         time_done = end - start
-                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, self.g_time, time_done, a,
-                               self.action_queue, self.name)
-
+                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, self.g_time, time_done, self.name)
                         scores.append(int(self.g_ep_r.value))
-
                         break
 
                 state = s_

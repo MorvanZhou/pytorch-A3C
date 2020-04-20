@@ -77,7 +77,7 @@ def optimize(opt, lnet, done, s_, bs, ba, br, gamma):
     opt.step()
 
 
-def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, global_time_done, time_done, a, action_queue, name):
+def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, global_time_done, time_done, name):
     with global_ep.get_lock():
         global_ep.value += 1
 
@@ -97,7 +97,6 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, global_time_done
               time_done)
     res_queue.put(global_ep_r.value)
     time_queue.put(time_done)
-    action_queue.put(a)
 
 
 def plotter_ep_rew_norm(ax2, scores):

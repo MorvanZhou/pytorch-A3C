@@ -140,10 +140,9 @@ class Worker(mp.Process):
 
     def run(self):
         total_step = 1
-        stop_processes = False
         scores = []
 
-        while self.g_ep.value < MAX_EP and stop_processes is False:
+        while self.g_ep.value < MAX_EP:
             self.game.new_episode()
             state = game_state(self.game)
             buffer_s, buffer_a, buffer_r = [], [], []
@@ -152,12 +151,12 @@ class Worker(mp.Process):
                 start = time.time()
                 done = False
                 a = self.lnet.choose_action(state)
-                for i in range(len(attack)):
-                    if attack[i] == a:
-                        self.action_queue.put(1)
-                    else:
-                        self.action_queue.put(0)
 
+                if a in attack:
+                    self.action_queue.put(1)
+                else:
+                    self.action_queue.put(0)
+                
                 r = self.game.make_action(actions[a], frame_repeat)
 
                 if self.game.is_episode_finished():
@@ -179,9 +178,7 @@ class Worker(mp.Process):
                     if done:
                         end = time.time()
                         time_done = end - start
-                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, self.g_time, time_done, a,
-                               self.action_queue, self.name)
-
+                        record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, self.g_time, time_done, self.name)
                         scores.append(int(self.g_ep_r.value))
 
                         break
@@ -189,8 +186,11 @@ class Worker(mp.Process):
                 state = s_
                 total_step += 1
 
+
+        print("Out of here")
         self.time_queue.put(None)
         self.res_queue.put(None)
+        self.action_queue.put(None)
 
 
 if __name__ == '__main__':
@@ -239,6 +239,7 @@ if __name__ == '__main__':
             r = res_queue.get()
             t = time_queue.get()
             a = action_queue.get()
+
             if r is not None:
                 res.append(r)
             if t is not None:
