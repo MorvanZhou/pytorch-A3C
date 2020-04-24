@@ -109,7 +109,7 @@ def plotter_ep_rew_norm(ax2, scores):
 def plotter_ep_rew(ax2, scores):
     ax2.plot(scores)
     ax2.axhline(y=0, color='r')
-    ax2.set_ylim(-120,550)
+    ax2.set_ylim(-120,1000)
     ax2.set_ylabel('Reward per Episode')
     ax2.set_xlabel('Episode')
 
