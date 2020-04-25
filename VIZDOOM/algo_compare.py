@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from numpy import loadtxt
 import argparse
+import numpy as np
 
 def handleArguments():
     """Handles CLI arguments and saves them globally"""
@@ -113,11 +114,24 @@ if __name__ == "__main__":
 
         if args.a2csync:
             # load array
-            a2c_sync_data = loadtxt('VIZDOOM/doom_save_plot_data/a2c_sync_doom.csv', delimiter=',')
-            a2c_sync_comb_data = loadtxt('VIZDOOM/doom_save_plot_data/a2c_sync_doom_comb.csv', delimiter=',')
+            a2c_sync_arr = []
+            for i in range(1, 44):
+                a2c_sync_data = loadtxt(f'VIZDOOM/doom_save_plot_data/A2C/a2c_sync_doom{i}.csv', delimiter=',')
+                if a2c_sync_data != []:
+                    for j in a2c_sync_data:
+                       a2c_sync_arr.append(j)
 
-            plotter_ep_rew_all(a2c_sync_data, "A2C-Sync")
-            plotter_ep_rew_all(a2c_sync_comb_data, "A2C-Sync (shared NN)")
+            plotter_ep_rew_all(a2c_sync_arr, "A2C-Sync")
+
+            a2c_sync_comb_arr = []
+            for j in range(1,43):
+                a2c_sync_comb_data = loadtxt(f'VIZDOOM/doom_save_plot_data/A2C_Comb/a2c_sync_doom_comb{j}.csv', delimiter=',')
+                if a2c_sync_comb_data != []:
+                    for j in a2c_sync_comb_data:
+                        a2c_sync_comb_arr.append(j)
+
+            plotter_ep_rew_all(a2c_sync_comb_arr, "A2C-Sync (shared NN)")
+
 
         if args.separatedNN:
             # load array
