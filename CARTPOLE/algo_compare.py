@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from numpy import loadtxt
 import argparse
+import numpy as np
 
 def handleArguments():
     """Handles CLI arguments and saves them globally"""
@@ -8,156 +9,102 @@ def handleArguments():
         description="Switch between modes in A2C or loading models from previous games")
     parser.add_argument("--a2c", "-2", help="Takes data from A2C agents", action="store_true")
     parser.add_argument("--a3c", "-3", help="Takes data from A3C agents", action="store_true")
-    parser.add_argument("--a2csync", "-2s", help="Takes data from A2C-Sync agents", action="store_true")
-    parser.add_argument("--separatedNN", "-se", help="Takes data from separated NN agents", action="store_true")
-    parser.add_argument("--sharedNN", "-sh", help="Takes data from shared NN agents", action="store_true")
+    parser.add_argument("--a2csync", "-S", help="Takes data from A2C-Sync agents", action="store_true")
     parser.add_argument("--all", "-a", help="Takes data from all agents", action="store_true")
-    parser.add_argument("--test", "-t", help="Takes data from all agents", action="store_true")
     global args
     args = parser.parse_args()
     return args
 
-def plotter_ep_rew_all(scores, label):
-    plt.plot(scores, label=label)
-    plt.axhline(y=200.00, color='r')
-    plt.ylim(0,500)
-    plt.ylabel('Reward per Episode')
-    plt.xlabel('Episode')
+def plotter_ep_rew_all(ax, scores, label):
+    ax.plot(scores, label=label)
+    ax.axhline(y=200, color='r')
+    ax.set_ylim(0, 500)
+    ax.set_ylabel('Reward per Episode')
+
 
 
 if __name__ == "__main__":
 
     args = handleArguments()
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 
-    if args.test:
-        if args.a2c:
-            # load array
-            a2c_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_test.csv', delimiter=',')
-            a2c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb_test.csv', delimiter=',')
+    if args.a2c:
+        # load array
+        a2c_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart.csv', delimiter=',')
+        a2c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb.csv', delimiter=',')
+        a2c_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_test.csv', delimiter=',')
+        a2c_comb_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb_test.csv', delimiter=',')
+        plotter_ep_rew_all(ax1,a2c_data, "A2C")
+        plotter_ep_rew_all(ax1, a2c_comb_data, "A2C (shared NN)")
+        plotter_ep_rew_all(ax2, a2c_data_test, "A2C")
+        plotter_ep_rew_all(ax2, a2c_comb_data_test, "A2C (shared NN)")
+        ax2.set_xlabel('Episode')
+        plt.title("Vanilla A2C-Cartpole", fontsize=16)
 
-            plotter_ep_rew_all(a2c_data, "A2C")
-            plotter_ep_rew_all(a2c_comb_data, "A2C (shared NN)")
+    if args.a3c:
+        # load array
+        a3c_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart.csv', delimiter=',')
+        a3c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb.csv', delimiter=',')
+        a3c_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_test.csv', delimiter=',')
+        a3c_comb_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb_test.csv', delimiter=',')
+        plotter_ep_rew_all(ax1,a3c_data, "A3C")
+        plotter_ep_rew_all(ax1, a3c_comb_data, "A3C (shared NN)")
+        plotter_ep_rew_all(ax2, a3c_data_test, "A3C")
+        plotter_ep_rew_all(ax2, a3c_comb_data_test, "A3C (shared NN)")
+        ax2.set_xlabel('Episode')
+        plt.title("A3C-Cartpole", fontsize=16)
 
-        if args.a3c:
-            # load array
-            a3c_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_test.csv', delimiter=',')
-            a3c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb_test.csv', delimiter=',')
+    if args.a2csync:
+        # load array
+        a2c_sync_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart.csv', delimiter=',')
+        plotter_ep_rew_all(ax1, a2c_sync_data, "A2C-Sync")
 
-            plotter_ep_rew_all(a3c_data, "A3C")
-            plotter_ep_rew_all(a3c_comb_data, "A3C (shared NN)")
+        a2c_sync_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb.csv', delimiter=',')
+        plotter_ep_rew_all(ax1, a2c_sync_comb_data, "A2C-Sync (shared NN)")
 
-        if args.a2csync:
-            # load array
-            a2c_sync_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_test.csv', delimiter=',')
-            a2c_sync_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb_test.csv', delimiter=',')
+        a2c_sync_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_test.csv', delimiter=',')
+        plotter_ep_rew_all(ax2, a2c_sync_data_test, "A2C-Sync")
 
-            plotter_ep_rew_all(a2c_sync_data, "A2C-Sync")
-            plotter_ep_rew_all(a2c_sync_comb_data, "A2C-Sync (shared NN)")
+        a2c_sync_comb_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb_test.csv', delimiter=',')
+        plotter_ep_rew_all(ax2, a2c_sync_comb_data_test, "A2C-Sync (shared NN)")
+        ax2.set_xlabel('Episode')
+        plt.title("Synchronous A2C-Cartpole", fontsize=16)
 
-        if args.separatedNN:
-            # load array
-            a2c_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_test.csv', delimiter=',')
-            a3c_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_test.csv', delimiter=',')
-            a2c_sync_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_test.csv', delimiter=',')
+    if args.all:
+        # load array
+        a2c_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart.csv', delimiter=',')
+        a2c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb.csv', delimiter=',')
+        plotter_ep_rew_all(ax1, a2c_data, "A2C")
+        plotter_ep_rew_all(ax1, a2c_comb_data, "A2C (shared NN)")
 
-            plotter_ep_rew_all(a2c_data, "A2C")
-            plotter_ep_rew_all(a3c_data, "A3C")
-            plotter_ep_rew_all(a2c_sync_data, "A2C-Sync")
+        a3c_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart.csv', delimiter=',')
+        a3c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb.csv', delimiter=',')
+        plotter_ep_rew_all(ax1, a3c_data, "A3C")
+        plotter_ep_rew_all(ax1, a3c_comb_data, "A3C (shared NN)")
 
-        if args.sharedNN:
-            # load array
-            a2c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb_test.csv', delimiter=',')
-            a3c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb_test.csv', delimiter=',')
-            a2c_sync_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb_test.csv', delimiter=',')
+        a2c_sync_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart.csv', delimiter=',')
+        plotter_ep_rew_all(ax1, a2c_sync_data, "A2C-Sync")
+        a2c_sync_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb.csv', delimiter=',')
+        plotter_ep_rew_all(ax1, a2c_sync_comb_data, "A2C-Sync (shared NN)")
 
-            plotter_ep_rew_all(a2c_comb_data, "A2C (shared NN)")
-            plotter_ep_rew_all(a3c_comb_data, "A3C (shared NN)")
-            plotter_ep_rew_all(a2c_sync_comb_data, "A2C-Sync (shared NN)")
 
-        if args.all:
-            # load array
-            # load array
-            a2c_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_test.csv', delimiter=',')
-            a3c_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_test.csv', delimiter=',')
-            a2c_sync_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_test.csv', delimiter=',')
+        a2c_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_test.csv', delimiter=',')
+        a3c_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_test.csv', delimiter=',')
+        a2c_sync_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_test.csv', delimiter=',')
+        plotter_ep_rew_all(ax2, a2c_data_test, "A2C")
+        plotter_ep_rew_all(ax2, a3c_data_test, "A3C")
+        plotter_ep_rew_all(ax2, a2c_sync_data_test, "A2C-Sync")
 
-            plotter_ep_rew_all(a2c_data, "A2C")
-            plotter_ep_rew_all(a3c_data, "A3C")
-            plotter_ep_rew_all(a2c_sync_data, "A2C-Sync")
+        # load array
+        a2c_comb_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb_test.csv', delimiter=',')
+        a3c_comb_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb_test.csv', delimiter=',')
+        a2c_sync_comb_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb_test.csv', delimiter=',')
+        plotter_ep_rew_all(ax2, a2c_comb_data_test, "A2C (shared NN)")
+        plotter_ep_rew_all(ax2, a3c_comb_data_test, "A3C (shared NN)")
+        plotter_ep_rew_all(ax2, a2c_sync_comb_data_test, "A2C-Sync (shared NN)")
 
-            # load array
-            a2c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb_test.csv', delimiter=',')
-            a3c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb_test.csv', delimiter=',')
-            a2c_sync_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb_test.csv', delimiter=',')
-
-            plotter_ep_rew_all(a2c_comb_data, "A2C (shared NN)")
-            plotter_ep_rew_all(a3c_comb_data, "A3C (shared NN)")
-            plotter_ep_rew_all(a2c_sync_comb_data, "A2C-Sync (shared NN)")
-
-    else:
-        if args.a2c:
-            # load array
-            a2c_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart.csv', delimiter=',')
-            a2c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb.csv', delimiter=',')
-
-            plotter_ep_rew_all(a2c_data, "A2C")
-            plotter_ep_rew_all(a2c_comb_data, "A2C (shared NN)")
-
-        if args.a3c:
-            # load array
-            a3c_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart.csv', delimiter=',')
-            a3c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb.csv', delimiter=',')
-
-            plotter_ep_rew_all(a3c_data, "A3C")
-            plotter_ep_rew_all(a3c_comb_data, "A3C (shared NN)")
-
-        if args.a2csync:
-            # load array
-            a2c_sync_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart.csv', delimiter=',')
-            a2c_sync_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb.csv', delimiter=',')
-
-            plotter_ep_rew_all(a2c_sync_data, "A2C-Sync")
-            plotter_ep_rew_all(a2c_sync_comb_data, "A2C-Sync (shared NN)")
-
-        if args.separatedNN:
-            # load array
-            a2c_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart.csv', delimiter=',')
-            a3c_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart.csv', delimiter=',')
-            a2c_sync_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart.csv', delimiter=',')
-
-            plotter_ep_rew_all(a2c_data, "A2C")
-            plotter_ep_rew_all(a3c_data, "A3C")
-            plotter_ep_rew_all(a2c_sync_data, "A2C-Sync")
-
-        if args.sharedNN:
-            # load array
-            a2c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb.csv', delimiter=',')
-            a3c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb.csv', delimiter=',')
-            a2c_sync_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb.csv', delimiter=',')
-
-            plotter_ep_rew_all(a2c_comb_data, "A2C (shared NN)")
-            plotter_ep_rew_all(a3c_comb_data, "A3C (shared NN)")
-            plotter_ep_rew_all(a2c_sync_comb_data, "A2C-Sync (shared NN)")
-
-        if args.all:
-            # load array
-            # load array
-            a2c_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart.csv', delimiter=',')
-            a3c_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart.csv', delimiter=',')
-            a2c_sync_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart.csv', delimiter=',')
-
-            plotter_ep_rew_all(a2c_data, "A2C")
-            plotter_ep_rew_all(a3c_data, "A3C")
-            plotter_ep_rew_all(a2c_sync_data, "A2C-Sync")
-
-            # load array
-            a2c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb.csv', delimiter=',')
-            a3c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb.csv', delimiter=',')
-            a2c_sync_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb.csv', delimiter=',')
-
-            plotter_ep_rew_all(a2c_comb_data, "A2C (shared NN)")
-            plotter_ep_rew_all(a3c_comb_data, "A3C (shared NN)")
-            plotter_ep_rew_all(a2c_sync_comb_data, "A2C-Sync (shared NN)")
+        ax2.set_xlabel('Episode')
+        plt.title("Advantage Actor-Critic Cartpole", fontsize=16)
 
 
 
