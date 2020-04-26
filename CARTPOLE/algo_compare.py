@@ -11,6 +11,7 @@ def handleArguments():
     parser.add_argument("--a3c", "-3", help="Takes data from A3C agents", action="store_true")
     parser.add_argument("--a2csync", "-S", help="Takes data from A2C-Sync agents", action="store_true")
     parser.add_argument("--all", "-a", help="Takes data from all agents", action="store_true")
+    parser.add_argument("--probs", "-p", help="Plots probabilities of action 'right'", action="store_true")
     global args
     args = parser.parse_args()
     return args
@@ -21,6 +22,13 @@ def plotter_ep_rew_all(ax, scores, label):
     ax.set_ylim(0, 500)
     ax.set_ylabel('Reward per Episode')
 
+
+def plotter_probs(ax, probs):
+    ax.plot(probs)
+    ax.set_ylim(0.3,0.7)
+    ax.axhline(max(probs), color='r')
+    ax.axhline(min(probs), color='r')
+    ax.set_ylabel("Probability of Action 'Right'")
 
 
 if __name__ == "__main__":
@@ -106,7 +114,14 @@ if __name__ == "__main__":
         ax2.set_xlabel('Episode')
         plt.title("Advantage Actor-Critic Cartpole", fontsize=16)
 
+    if args.probs:
+        probs = loadtxt('CARTPOLE/cart_save_plot_data/probs.csv', delimiter=',')
+        probs_test = loadtxt('CARTPOLE/cart_save_plot_data/probs_test.csv', delimiter=',')
 
+        plotter_probs(ax1, probs)
+        plotter_probs(ax2, probs_test)
+        ax2.set_xlabel('Batch of 100 Actions')
+        plt.title("Action Probabilities - Cartpole", fontsize=16)
 
     plt.legend()
     plt.show()

@@ -24,6 +24,13 @@ def plotter_ep_rew_all(ax, scores, label):
     ax.set_ylabel('Reward per Episode')
 
 
+def plotter_probs(ax, probs):
+    ax.ylim(0,0.4)
+    ax.axhline(max(probs), color='r')
+    ax.axhline(min(probs), color='r')
+    ax.set_ylabel("Probability of Taking Action 'Shoot'")
+
+
 
 if __name__ == "__main__":
 
@@ -140,6 +147,16 @@ if __name__ == "__main__":
 
         ax2.set_xlabel('Episode')
         plt.title("Advantage Actor-Critic Vizdoom", fontsize=16)
+
+
+    if args.probs:
+        probs = loadtxt('VIZDOOM/doom_save_plot_data/probs.csv', delimiter=',')
+        probs_test = loadtxt('VIZDOOM/doom_save_plot_data/probs_test.csv', delimiter=',')
+
+        plotter_probs(ax1, probs)
+        plotter_probs(ax2, probs_test)
+        ax2.set_xlabel('Batch of 100 Actions')
+        ax2.title("Advantage Actor-Critic: Vizdoom", fontsize=16)
 
 
 

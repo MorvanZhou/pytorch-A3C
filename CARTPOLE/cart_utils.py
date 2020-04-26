@@ -104,6 +104,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, time_queue, global_time_done
     time_queue.put(time_done)
     action_queue.put(a)
 
+
 def plotter_ep_rew_norm(ax2, scores):
     ax2.plot(scores)
     ax2.axhline(y=200.00, color='r')
@@ -146,6 +147,22 @@ def confidence_intervall(actions, load_model = False):
     # Check for probabilities of actions and create confidence intervall for two standard deviations
     print("Probabilities: ", probabilities)
 
+    if handleArguments().load_model:
+        probs = np.asarray([probabilities])
+        np.savetxt('CARTPOLE/cart_save_plot_data/probs_test.csv', probs, delimiter=',')
+    else:
+        probs = np.asarray([probabilities])
+        np.savetxt('CARTPOLE/cart_save_plot_data/probs.csv', probs, delimiter=',')
+
+    plt.figure(3)
+    plt.plot(probabilities)
+    plt.ylim(0,1)
+    plt.axhline(max(probabilities), color='r')
+    plt.axhline(min(probabilities), color='r')
+    plt.ylabel("Probability of Choosing Action 'Right'")
+    plt.xlabel("Batch of 100 Actions")
+    plt.title("Advantage Actor-Critic: Cartpole", fontsize = 16)
+
     if load_model == True:
         stan_dev1 = np.sqrt(probabilities[0] * (1 - probabilities[0]) / 100) * 2
         print("First Confidence Intervall for 95% confidence: the action 'right' is chosen between",
@@ -160,7 +177,7 @@ def confidence_intervall(actions, load_model = False):
               round(probabilities[2] + stan_dev2, 3))
 
         stan_dev3 = np.sqrt(probabilities[3] * (1 - probabilities[3]) /100) * 2
-        print("Second Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[3] - stan_dev3, 3), " and",
+        print("Third Confidence Intervall for 95% confidence: the action 'right' is chosen between", round(probabilities[3] - stan_dev3, 3), " and",
               round(probabilities[3] + stan_dev3, 3))
 
 

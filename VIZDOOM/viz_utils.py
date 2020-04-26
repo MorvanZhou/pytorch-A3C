@@ -140,6 +140,22 @@ def confidence_intervall(actions, load_model=False):
     # Check for probabilities of actions and create confidence intervall for two standard deviations
     print("Probabilities: ", probabilities)
 
+    if handleArguments().load_model:
+        probs = np.asarray([probabilities])
+        np.savetxt('VIZDOOM/doom_save_plot_data/probs_test.csv', probs, delimiter=',')
+    else:
+        probs = np.asarray([probabilities])
+        np.savetxt('VIZDOOM/doom_save_plot_data/probs.csv', probs, delimiter=',')
+
+    plt.figure(3)
+    plt.plot(probabilities)
+    plt.ylim(0,1)
+    plt.axhline(max(probabilities), color='r')
+    plt.axhline(min(probabilities), color='r')
+    plt.ylabel("Probability of Choosing Action 'Shoot'")
+    plt.xlabel("Batch of 100 Actions")
+    plt.title("Advantage Actor-Critic: Vizdoom", fontsize = 16)
+
     if load_model == True:
         stan_dev1 = np.sqrt(probabilities[0] * (1 - probabilities[0]) / 100) * 2
         print("First Confidence Intervall for 95% confidence: the action 'attack' is chosen between",
