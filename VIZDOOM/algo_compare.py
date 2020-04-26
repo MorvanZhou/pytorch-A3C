@@ -13,6 +13,7 @@ def handleArguments():
     parser.add_argument("--separatedNN", "-se", help="Takes data from separated NN agents", action="store_true")
     parser.add_argument("--sharedNN", "-sh", help="Takes data from shared NN agents", action="store_true")
     parser.add_argument("--all", "-a", help="Takes data from all agents", action="store_true")
+    parser.add_argument("--probs", "-p", help="Plots probabilities of action 'right'", action="store_true")
     global args
     args = parser.parse_args()
     return args
@@ -25,10 +26,11 @@ def plotter_ep_rew_all(ax, scores, label):
 
 
 def plotter_probs(ax, probs):
-    ax.ylim(0,0.4)
+    ax.plot(probs)
+    ax.set_ylim(0,0.1)
     ax.axhline(max(probs), color='r')
     ax.axhline(min(probs), color='r')
-    ax.set_ylabel("Probability of Taking Action 'Shoot'")
+    ax.set_ylabel("Probability of Action 'Shoot'")
 
 
 
@@ -107,8 +109,8 @@ if __name__ == "__main__":
     if args.all:
         # load array
         # load array
-        a2c_data = loadtxt('VIZDOOM/cart_save_plot_data/a2c_doom.csv', delimiter=',')
-        a3c_data = loadtxt('VIZDOOM/cart_save_plot_data/a3c_doom.csv', delimiter=',')
+        a2c_data = loadtxt('VIZDOOM/doom_save_plot_data/a2c_doom.csv', delimiter=',')
+        a3c_data = loadtxt('VIZDOOM/doom_save_plot_data/a3c_doom.csv', delimiter=',')
         a2c_sync_arr = []
         for i in range(1, 44):
             a2c_sync_data = loadtxt(f'VIZDOOM/doom_save_plot_data/A2C/a2c_sync_doom{i}.csv', delimiter=',')
@@ -156,7 +158,7 @@ if __name__ == "__main__":
         plotter_probs(ax1, probs)
         plotter_probs(ax2, probs_test)
         ax2.set_xlabel('Batch of 100 Actions')
-        ax2.title("Advantage Actor-Critic: Vizdoom", fontsize=16)
+        plt.title("Advantage Actor-Critic: Vizdoom", fontsize=16)
 
 
 

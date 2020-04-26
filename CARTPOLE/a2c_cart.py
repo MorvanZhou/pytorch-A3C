@@ -184,12 +184,6 @@ if __name__ == "__main__":
 
         timedelta_sum += timedelta/3
 
-        # Get results for confidence intervall
-        if handleArguments().load_model:
-            confidence_intervall(actions, True)
-        else:
-            confidence_intervall(actions)
-
         # Plot results
         if handleArguments().normalized_plot:
             plotter_ep_time_norm(ax1, durations)
@@ -197,6 +191,12 @@ if __name__ == "__main__":
         else:
             plotter_ep_time(ax1, durations)
             plotter_ep_rew(ax2, scores)
+
+        # Get results for confidence interval
+        if handleArguments().load_model:
+            confidence_intervall(actions, True)
+        else:
+            confidence_intervall(actions)
 
         if handleArguments().save_data:
             if handleArguments().load_model:
@@ -211,7 +211,8 @@ if __name__ == "__main__":
             'weight': 'normal',
             'size': 8
             }
-    #plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+    plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
+
     plt.title("Vanilla A2C-Cartpole", fontsize = 16)
     plt.show()
 

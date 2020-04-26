@@ -241,9 +241,6 @@ if __name__ == '__main__':
         print("Number of Episodes: ", global_ep, " | Finished within: ", timedelta)
         timedelta_sum += timedelta/3
 
-        # Get results for confidence intervall
-        confidence_intervall(action)
-
         # Plot results
         if handleArguments().normalized_plot:
             plotter_ep_time_norm(ax1, durations)
@@ -251,6 +248,9 @@ if __name__ == '__main__':
         else:
             plotter_ep_time(ax1, durations)
             plotter_ep_rew(ax2, scores)
+
+        # Get results for confidence intervall
+        confidence_intervall(action)
 
         if handleArguments().save_data:
             if handleArguments().load_model:

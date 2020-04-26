@@ -207,13 +207,6 @@ if __name__ == "__main__":
 
         timedelta_sum += timedelta / 3
 
-        # Get results for confidence intervall
-
-        if handleArguments().load_model:
-            confidence_intervall(actions, True)
-        else:
-            confidence_intervall(actions)
-
         # Plot results
         if handleArguments().normalized_plot:
             plotter_ep_time_norm(ax1, durations)
@@ -229,6 +222,12 @@ if __name__ == "__main__":
             else:
                 scores = np.asarray([res])
                 np.savetxt('CARTPOLE/cart_save_plot_data/a3c_cart.csv', scores, delimiter=',')
+
+        # Get results for confidence intervall
+        if handleArguments().load_model:
+            confidence_intervall(actions, True)
+        else:
+            confidence_intervall(actions)
 
     font = {'family': 'serif',
             'color': 'darkred',
