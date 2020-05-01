@@ -7,10 +7,9 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn
 import torch.nn.functional as F
-from tqdm import trange
 from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution
 
-from viz_utils import v_wrap, set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, push_and_pull, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
+from viz_utils import set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, push_and_pull, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
 import sys
@@ -138,10 +137,9 @@ class Worker(mp.Process):
 
     def run(self):
         total_step = 1
-        stop_processes = False
         scores = []
 
-        while self.g_ep.value < MAX_EP and stop_processes is False:
+        while self.g_ep.value < MAX_EP:
             self.game.new_episode()
             state = game_state(self.game)
             buffer_s, buffer_a, buffer_r = [], [], []
@@ -150,6 +148,7 @@ class Worker(mp.Process):
                 start = time.time()
                 done = False
                 a = self.lnet.choose_action(state)
+
                 if a in attack:
                     self.action_queue.put(1)
                 else:
@@ -184,6 +183,7 @@ class Worker(mp.Process):
 
         self.time_queue.put(None)
         self.res_queue.put(None)
+        self.action_queue.put(None)
 
 
 if __name__ == '__main__':
@@ -231,15 +231,14 @@ if __name__ == '__main__':
         while True:
             r = res_queue.get()
             t = time_queue.get()
-            a = action_queue.get()
-            if r is not None:
-                res.append(r)
-            if t is not None:
-                durations.append(t)
-            if a is not None:
-                action.append(a)
-            else:
+            act = action_queue.get()
+
+            if r is None or t is None or act is None:
                 break
+
+            res.append(r)
+            durations.append(t)
+            action.append(act)
 
         [w.join() for w in workers]
 
@@ -254,12 +253,6 @@ if __name__ == '__main__':
         print("Number of Episodes: ", global_ep.value, " | Finished within: ", timedelta)
         timedelta_sum += timedelta / 3
 
-        # Get results for confidence intervall
-        if handleArguments().load_model:
-          confidence_intervall(action, True)
-        else:
-          confidence_intervall(action)
-
         # Plot results
         if handleArguments().normalized_plot:
             plotter_ep_time_norm(ax1, durations)
@@ -267,6 +260,8 @@ if __name__ == '__main__':
         else:
             plotter_ep_time(ax1, durations)
             plotter_ep_rew(ax2, res)
+
+        plt.title("A3C-Vizdoom (shared NN)", fontsize=16)
 
         if handleArguments().save_data:
             if handleArguments().load_model:
@@ -276,6 +271,12 @@ if __name__ == '__main__':
                 scores = np.asarray([res])
                 np.savetxt('VIZDOOM/doom_save_plot_data/a3c_doom_comb.csv', scores, delimiter=',')
 
+        # Get results for confidence intervall
+        if handleArguments().load_model:
+          confidence_intervall(action, True)
+        else:
+          confidence_intervall(action)
+
     font = {'family': 'serif',
             'color': 'darkred',
             'weight': 'normal',
@@ -283,9 +284,7 @@ if __name__ == '__main__':
             }
     if handleArguments().normalized_plot:
         plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    #else:
-    #    plt.text(0, 500, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    plt.title("A3C-Vizdoom (shared NN)", fontsize=16)
+
     plt.show()
 
     game.close()

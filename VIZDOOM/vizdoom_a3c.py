@@ -7,10 +7,9 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn
 import torch.nn.functional as F
-from tqdm import trange
 from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution
 
-from viz_utils import v_wrap, set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, push_and_pull, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
+from viz_utils import set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, push_and_pull, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
 import torch.multiprocessing as mp
 from shared_adam import SharedAdam
 import sys
@@ -172,7 +171,7 @@ class Worker(mp.Process):
                 if done or total_step % UPDATE_GLOBAL_ITER == 0:  # update network
                     # sync
                     push_and_pull(opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
-                    game.get_total_reward()
+                    #game.get_total_reward()
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:
@@ -186,8 +185,6 @@ class Worker(mp.Process):
                 state = s_
                 total_step += 1
 
-
-        print("Out of here")
         self.time_queue.put(None)
         self.res_queue.put(None)
         self.action_queue.put(None)
@@ -222,6 +219,7 @@ if __name__ == '__main__':
         opt = SharedAdam(model.parameters(), lr=0.001, betas=(0.92, 0.999))
         global_ep, global_ep_r, global_time_done = mp.Value('i', 0), mp.Value('d', 0.), mp.Value('d', 0.)
         res_queue, time_queue, action_queue = mp.Queue(), mp.Queue(), mp.Queue()
+
         # parallel training
         if handleArguments().load_model:
             workers = [Worker(model, opt, global_ep, global_ep_r, global_time_done,res_queue, time_queue, action_queue, i) for i in range(1)]
@@ -238,20 +236,18 @@ if __name__ == '__main__':
         while True:
             r = res_queue.get()
             t = time_queue.get()
-            a = action_queue.get()
+            act = action_queue.get()
 
-            if r is not None:
-                res.append(r)
-            if t is not None:
-                durations.append(t)
-            if a is not None:
-                action.append(a)
-            else:
+            if r is None or t is None or act is None:
                 break
+
+            res.append(r)
+            durations.append(t)
+            action.append(act)
 
         [w.join() for w in workers]
 
-        if not handleArguments().load_model and global_ep.value >= 10:
+        if not handleArguments().load_model:
             print("Save model")
             torch.save(model, "./VIZDOOM/doom_save_model/a3c_doom.pt")
         elif handleArguments().load_model:
@@ -262,20 +258,15 @@ if __name__ == '__main__':
         print("Number of Episodes: ", global_ep.value, " | Finished within: ", timedelta)
         timedelta_sum += timedelta / 3
 
-        # Get results for confidence intervall
-        # if handleArguments().load_model:
-        #   confidence_intervall(action, True)
-        # else:
-        #   confidence_intervall(action)
-
         # Plot results
-
         if handleArguments().normalized_plot:
             plotter_ep_time_norm(ax1, durations)
             plotter_ep_rew_norm(ax2, res)
         else:
             plotter_ep_time(ax1, durations)
             plotter_ep_rew(ax2, res)
+
+        plt.title("A3C-Vizdoom", fontsize=16)
 
         if handleArguments().save_data:
             if handleArguments().load_model:
@@ -285,6 +276,12 @@ if __name__ == '__main__':
                 scores = np.asarray([res])
                 np.savetxt('VIZDOOM/doom_save_plot_data/a3c_doom.csv', scores, delimiter=',')
 
+        # Get results for confidence intervall
+        if handleArguments().load_model:
+            confidence_intervall(action, True)
+        else:
+            confidence_intervall(action)
+
     font = {'family': 'serif',
             'color': 'darkred',
             'weight': 'normal',
@@ -292,9 +289,7 @@ if __name__ == '__main__':
             }
     if handleArguments().normalized_plot:
         plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    #else:
-    #    plt.text(0, 500, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    plt.title("A3C-Vizdoom", fontsize=16)
+
     plt.show()
 
     game.close()

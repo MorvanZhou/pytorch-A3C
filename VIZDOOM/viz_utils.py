@@ -131,7 +131,7 @@ def confidence_intervall(actions, load_model=False):
     for a in actions:
         if a == 1:
             probab_count += 1
-        if count % 100 == 0 and count != 1:
+        if count % 10 == 0 and count != 1:
             probab_count = probab_count / 100
             probabilities.append(probab_count)
             probab_count = 0
@@ -154,7 +154,6 @@ def confidence_intervall(actions, load_model=False):
     plt.axhline(min(probabilities), color='r')
     plt.ylabel("Probability of Choosing Action 'Shoot'")
     plt.xlabel("Batch of 100 Actions")
-    plt.title("Advantage Actor-Critic: Vizdoom", fontsize = 16)
 
     if load_model == True:
         stan_dev1 = np.sqrt(probabilities[0] * (1 - probabilities[0]) / 100) * 2

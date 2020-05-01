@@ -7,10 +7,9 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn
 import torch.nn.functional as F
-from tqdm import trange
 from vizdoom import DoomGame, Mode, ScreenFormat, ScreenResolution
 
-from viz_utils import v_wrap, set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, optimize, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
+from viz_utils import set_init, plotter_ep_rew, plotter_ep_rew_norm, handleArguments, optimize, record, plotter_ep_time_norm, plotter_ep_time, confidence_intervall
 from shared_adam import SharedAdam
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -70,8 +69,6 @@ class Net(nn.Module):
         self.pi3 = nn.Linear(360, a_dim)
         self.v2 = nn.Linear(240, 360)
         self.v3 = nn.Linear(360, 1)
-
-        #self.optimizer = torch.optim.SGD(self.parameters(), FLAGS.learning_rate)
 
         set_init([self.pi1, self.pi2, self.pi3, self.v2, self.v3])
         self.distribution = torch.distributions.Categorical
@@ -247,6 +244,8 @@ if __name__ == '__main__':
             plotter_ep_time(ax1, durations)
             plotter_ep_rew(ax2, scores)
 
+        plt.title("Vanilla A2C-Vizdoom (shared NN)", fontsize=16)
+
         # Get results for confidence intervall
         confidence_intervall(action)
 
@@ -265,7 +264,6 @@ if __name__ == '__main__':
             }
     if handleArguments().normalized_plot:
         plt.text(0, 450, f"Average Training Duration: {timedelta_sum}", fontdict=font)
-    plt.title("Vanilla A2C-Vizdoom (shared NN)", fontsize = 16)
     plt.show()
 
     game.close()
