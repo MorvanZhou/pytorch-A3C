@@ -13,6 +13,7 @@ def handleArguments():
     parser.add_argument("--separatedNN", "-se", help="Takes data from separated NN agents", action="store_true")
     parser.add_argument("--sharedNN", "-sh", help="Takes data from shared NN agents", action="store_true")
     parser.add_argument("--all", "-a", help="Takes data from all agents", action="store_true")
+    parser.add_argument("--alltest", "-t", help="Takes data from all trained agents", action="store_true")
     parser.add_argument("--probs", "-p", help="Plots probabilities of action 'right'", action="store_true")
     global args
     args = parser.parse_args()
@@ -27,7 +28,7 @@ def plotter_ep_rew_all(ax, scores, label):
 
 def plotter_probs(ax, probs):
     ax.plot(probs)
-    ax.set_ylim(0,0.1)
+    ax.set_ylim(0,0.2)
     ax.axhline(max(probs), color='r')
     ax.axhline(min(probs), color='r')
     ax.set_ylabel("Probability of Action 'Shoot'")
@@ -37,7 +38,9 @@ def plotter_probs(ax, probs):
 if __name__ == "__main__":
 
     args = handleArguments()
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+
+    if not args.all and not args.alltest:
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 
     if args.a2c:
         # load array
@@ -107,7 +110,8 @@ if __name__ == "__main__":
         plotter_ep_rew_all(a2c_sync_comb_data, "A2C-Sync (shared NN)")
 
     if args.all:
-        # load array
+
+        fig, (ax1) = plt.subplots()
         # load array
         a2c_data = loadtxt('VIZDOOM/doom_save_plot_data/a2c_doom.csv', delimiter=',')
         a3c_data = loadtxt('VIZDOOM/doom_save_plot_data/a3c_doom.csv', delimiter=',')
@@ -133,6 +137,13 @@ if __name__ == "__main__":
         plotter_ep_rew_all(ax1, a2c_comb_data, "A2C (shared NN)")
         plotter_ep_rew_all(ax1,a3c_comb_data, "A3C (shared NN)")
         plotter_ep_rew_all(ax1, a2c_sync_comb_arr, "A2C-Sync (shared NN)")
+
+        plt.title("Advantage Actor-Critic Vizdoom", fontsize=16)
+        plt.legend()
+
+    if args.alltest:
+        fig,(ax2) = plt.subplots()
+
         a2c_data_test = loadtxt('VIZDOOM/doom_save_plot_data/a2c_doom_test.csv', delimiter=',')
         a3c_data_test = loadtxt('VIZDOOM/doom_save_plot_data/a3c_doom_test.csv', delimiter=',')
         a2c_sync_data_test = loadtxt('VIZDOOM/doom_save_plot_data/a2c_sync_doom_test.csv', delimiter=',')
@@ -143,12 +154,13 @@ if __name__ == "__main__":
         a2c_comb_data_test = loadtxt('VIZDOOM/doom_save_plot_data/a2c_doom_comb_test.csv', delimiter=',')
         a3c_comb_data_test = loadtxt('VIZDOOM/doom_save_plot_data/a3c_doom_comb_test.csv', delimiter=',')
         a2c_sync_comb_data_test = loadtxt('VIZDOOM/doom_save_plot_data/a2c_sync_doom_comb_test.csv', delimiter=',')
-        plotter_ep_rew_all(ax2, a2c_comb_data, "A2C (shared NN)")
-        plotter_ep_rew_all(ax2, a3c_comb_data, "A3C (shared NN)")
+        plotter_ep_rew_all(ax2, a2c_comb_data_test, "A2C (shared NN)")
+        plotter_ep_rew_all(ax2, a3c_comb_data_test, "A3C (shared NN)")
         plotter_ep_rew_all(ax2, a2c_sync_comb_data_test, "A2C-Sync (shared NN)")
 
         ax2.set_xlabel('Episode')
         plt.title("Advantage Actor-Critic Vizdoom", fontsize=16)
+        plt.legend()
 
 
     if args.probs:
@@ -160,7 +172,7 @@ if __name__ == "__main__":
         ax2.set_xlabel('Batch of 100 Actions')
         plt.title("Advantage Actor-Critic: Vizdoom", fontsize=16)
 
+    if not args.all and not args.alltest:
+        plt.legend()
 
-
-    plt.legend()
     plt.show()

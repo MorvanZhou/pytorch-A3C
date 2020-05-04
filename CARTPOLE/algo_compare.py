@@ -11,6 +11,7 @@ def handleArguments():
     parser.add_argument("--a3c", "-3", help="Takes data from A3C agents", action="store_true")
     parser.add_argument("--a2csync", "-S", help="Takes data from A2C-Sync agents", action="store_true")
     parser.add_argument("--all", "-a", help="Takes data from all agents", action="store_true")
+    parser.add_argument("--alltest", "-t", help="Takes data from all trained agents", action="store_true")
     parser.add_argument("--probs", "-p", help="Plots probabilities of action 'right'", action="store_true")
     global args
     args = parser.parse_args()
@@ -34,7 +35,8 @@ def plotter_probs(ax, probs):
 if __name__ == "__main__":
 
     args = handleArguments()
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+    if not args.all and args.alltest:
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 
     if args.a2c:
         # load array
@@ -79,6 +81,10 @@ if __name__ == "__main__":
         plt.title("Synchronous A2C-Cartpole", fontsize=16)
 
     if args.all:
+
+
+        fig, (ax1) = plt.subplots()
+
         # load array
         a2c_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart.csv', delimiter=',')
         a2c_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb.csv', delimiter=',')
@@ -95,7 +101,7 @@ if __name__ == "__main__":
         a2c_sync_comb_data = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_comb.csv', delimiter=',')
         plotter_ep_rew_all(ax1, a2c_sync_comb_data, "A2C-Sync (shared NN)")
 
-
+        plt.subplot(ax2)
         a2c_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_test.csv', delimiter=',')
         a3c_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_test.csv', delimiter=',')
         a2c_sync_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_sync_cart_test.csv', delimiter=',')
@@ -103,6 +109,11 @@ if __name__ == "__main__":
         plotter_ep_rew_all(ax2, a3c_data_test, "A3C")
         plotter_ep_rew_all(ax2, a2c_sync_data_test, "A2C-Sync")
 
+        plt.title("Advantage Actor-Critic Cartpole", fontsize=16)
+        plt.legend()
+
+    if args.alltest:
+        fig, (ax2) = plt.subplots()
         # load array
         a2c_comb_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a2c_cart_comb_test.csv', delimiter=',')
         a3c_comb_data_test = loadtxt('CARTPOLE/cart_save_plot_data/a3c_cart_comb_test.csv', delimiter=',')
@@ -113,6 +124,7 @@ if __name__ == "__main__":
 
         ax2.set_xlabel('Episode')
         plt.title("Advantage Actor-Critic Cartpole", fontsize=16)
+        plt.legend()
 
     if args.probs:
         probs = loadtxt('CARTPOLE/cart_save_plot_data/probs.csv', delimiter=',')
@@ -123,5 +135,6 @@ if __name__ == "__main__":
         ax2.set_xlabel('Batch of 100 Actions')
         plt.title("Action Probabilities - Cartpole", fontsize=16)
 
-    plt.legend()
+    if not args.all and args.alltest:
+        plt.legend()
     plt.show()

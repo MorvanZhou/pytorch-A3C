@@ -123,7 +123,6 @@ class Net(nn.Module):
         return total_loss
 
 
-
 if __name__ == '__main__':
 
     print ("Starting A2C Agent for Vizdoom-DeadlyCorridor")
@@ -155,7 +154,7 @@ if __name__ == '__main__':
         # Global variables for episodes
         durations = []
         scores = []
-        global_ep, global_ep_r, global_time_done = 1, 0., 0.
+        global_ep, global_ep_r, global_time_done = 0, 0., 0.
         name = 'w00'
         total_step = 1
         stop_processes = False
@@ -172,11 +171,10 @@ if __name__ == '__main__':
                 done = False
 
                 a = model.choose_action(state)
-                for i in range(len(attack)):
-                    if attack[i] == a:
-                        action.append(1)
-                    else:
-                        action.append(0)
+                if a in attack:
+                    action.append(1)
+                else:
+                    action.append(0)
 
                 r = game.make_action(actions[a], frame_repeat)
 
@@ -223,13 +221,11 @@ if __name__ == '__main__':
                 state = s_
                 total_step += 1
 
-        if not handleArguments().load_model and global_ep >= 10:
+        if handleArguments().load_model:
+            print("Testing! No need to save model.")
+        else:
             print("Save model")
             torch.save(model, "./VIZDOOM/doom_save_model/a2c_doom_comb.pt")
-        elif handleArguments().load_model:
-            print ("Testing! No need to save model.")
-        else:
-            print("Failed to train agent. Model was not saved")
 
         endtime = datetime.now()
         timedelta = endtime - starttime

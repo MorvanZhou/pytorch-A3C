@@ -137,7 +137,6 @@ class Worker(mp.Process):
 
     def run(self):
         total_step = 1
-        scores = []
 
         while self.g_ep.value < MAX_EP:
             self.game.new_episode()
@@ -148,7 +147,6 @@ class Worker(mp.Process):
                 start = time.time()
                 done = False
                 a = self.lnet.choose_action(state)
-
                 if a in attack:
                     self.action_queue.put(1)
                 else:
@@ -175,7 +173,6 @@ class Worker(mp.Process):
                         end = time.time()
                         time_done = end - start
                         record(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.time_queue, self.g_time, time_done, self.name)
-                        scores.append(int(self.g_ep_r.value))
                         break
 
                 state = s_
@@ -242,11 +239,11 @@ if __name__ == '__main__':
 
         [w.join() for w in workers]
 
-        if not handleArguments().load_model and global_ep.value >= 10:
-            print("Save model")
-            torch.save(model, "./VIZDOOM/doom_save_model/a3c_doom_comb.pt")
         if handleArguments().load_model:
             print("Testing! No need to save model.")
+        else:
+            print("Save model")
+            torch.save(model, "./VIZDOOM/doom_save_model/a3c_doom_comb.pt")
 
         endtime = datetime.now()
         timedelta = endtime - starttime
@@ -272,10 +269,7 @@ if __name__ == '__main__':
                 np.savetxt('VIZDOOM/doom_save_plot_data/a3c_doom_comb.csv', scores, delimiter=',')
 
         # Get results for confidence intervall
-        if handleArguments().load_model:
-          confidence_intervall(action, True)
-        else:
-          confidence_intervall(action)
+        confidence_intervall(action)
 
     font = {'family': 'serif',
             'color': 'darkred',
