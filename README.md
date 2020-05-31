@@ -28,11 +28,13 @@ Fortunately, Pytorch gets the [multiprocessing compatibility](http://pytorch.org
 
 
 CartPole results
-![cartpole](/CARTPOLE/cart_results/Presentable_Results/Compared results/All.png)
-![cartpole_test](/CARTPOLE/cart_results/Presentable_Results/Compared results/All_test.png)
+![cartpole](/CARTPOLE/cart_results/Presentable_Results/Compared_results/All.png)
+![cartpole_test](/CARTPOLE/cart_results/Presentable_Results/Compared_results/All_test.png)
+
 
 Vizdoom results
-![pendulum](/results/pendulum.png)
+![vizdoom](/VIZDOOM/doom_results/Compared/all.png)
+![vizdoom_test](/VIZDOOM/doom_results/Compared/all_test.png)
 
 ## Dependencies
 
