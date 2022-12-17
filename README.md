@@ -27,13 +27,21 @@ Fortunately, Pytorch gets the [multiprocessing compatibility](http://pytorch.org
 * [utils.py](/CARTPOLE/cart_utils.py): contains plots, probability distribution, optimizer and memory functions
 
 
-CartPole results
+# CartPole results
+
+Training
 ![cartpole](/CARTPOLE/cart_results/Compared_results/All.png)
+
+Testing
 ![cartpole_test](/CARTPOLE/cart_results/Compared_results/All_test.png)
 
 
-Vizdoom results
+# Vizdoom results
+
+Training
 ![vizdoom](/VIZDOOM/doom_results/Compared/all.png)
+
+Testing
 ![vizdoom_test](/VIZDOOM/doom_results/Compared/all_test.png)
 
 ## Dependencies
