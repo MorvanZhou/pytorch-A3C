@@ -1,10 +1,10 @@
-## Experiments that compare Actor-Critic algorithms such as A2C and A3C. A thesis conducted by the TU Berlin.
+# Experiments that compare Actor-Critic algorithms such as A2C and A3C. A thesis conducted by the TU Berlin.
 
 This is an example of using multiprocessing with Pycharm to synchronously and asynchronously train a
 neural network to play 2D discrete action [CartPole](https://gym.openai.com/envs/CartPole-v0/) and
 3D realistic environment [Vizdoom](https://github.com/mwydmuch/ViZDoom) games. The baseline of the Advantage Actor-Critic is A2C. The asynchronous variation I used is called [Asynchronous Advantage Actor-Critic](https://arxiv.org/pdf/1602.01783.pdf) or A3C. The synchronous version is called [Synchronous Advantage Actor-Critic](https://openai.com/blog/baselines-acktr-a2c/) or A2C-Sync.
 
-## What are the main focuses in this implementation?
+## What are the key points of this project?
 
 * Pytorch + multiprocessing + shared memory for parallel training
 * Simple discrete environment and 3D realistic environment
@@ -27,21 +27,21 @@ Fortunately, Pytorch gets the [multiprocessing compatibility](http://pytorch.org
 * [utils.py](/CARTPOLE/cart_utils.py): contains plots, probability distribution, optimizer and memory functions
 
 
-# CartPole results
+### CartPole results
 
-Training
+#### Training
 ![cartpole](/CARTPOLE/cart_results/Compared_results/All.png)
 
-Testing
+#### Testing
 ![cartpole_test](/CARTPOLE/cart_results/Compared_results/All_test.png)
 
 
-# Vizdoom results
+### Vizdoom results
 
-Training
+#### Training
 ![vizdoom](/VIZDOOM/doom_results/Compared/all.png)
 
-Testing
+#### Testing
 ![vizdoom_test](/VIZDOOM/doom_results/Compared/all_test.png)
 
 ## Dependencies
