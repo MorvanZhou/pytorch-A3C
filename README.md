@@ -1,17 +1,14 @@
-# Simple implementation of Reinforcement Learning (A3C) using Pytorch
+# Experiments that compare Actor-Critic algorithms such as A2C and A3C. A thesis conducted by the TU Berlin.
 
-This is a toy example of using multiprocessing in Python to asynchronously train a
-neural network to play discrete action [CartPole](https://gym.openai.com/envs/CartPole-v0/) and
-continuous action [Pendulum](https://gym.openai.com/envs/Pendulum-v0/) games.
-The asynchronous algorithm I used is called [Asynchronous Advantage Actor-Critic](https://arxiv.org/pdf/1602.01783.pdf) or A3C.
+This is an example of using multiprocessing with Pycharm to synchronously and asynchronously train a
+neural network to play 2D discrete action [CartPole](https://gym.openai.com/envs/CartPole-v0/) and
+3D realistic environment [Vizdoom](https://github.com/mwydmuch/ViZDoom) games. The baseline of the Advantage Actor-Critic is A2C. The asynchronous variation I used is called [Asynchronous Advantage Actor-Critic](https://arxiv.org/pdf/1602.01783.pdf) or A3C. The synchronous version is called [Synchronous Advantage Actor-Critic](https://openai.com/blog/baselines-acktr-a2c/) or A2C-Sync.
 
-I believe it would be the simplest toy implementation you can find at the moment (2018-01).
+## What are the key points of this project?
 
-## What are the main focuses in this implementation?
-
-* Pytorch + multiprocessing (NOT threading) for parallel training
-* Both discrete and continuous action environments
-* To be simple and easy to dig into the code (less than 200 lines)
+* Pytorch + multiprocessing + shared memory for parallel training
+* Simple discrete environment and 3D realistic environment
+* Partly shared or separate Actor-Critic Neural Networks
 
 ## Reason of using [Pytorch](http://pytorch.org/) instead of [Tensorflow](https://www.tensorflow.org/)
 
@@ -23,25 +20,29 @@ However, the distributed version is for cluster computing which I don't have.
 When using only one machine, it is slower than threading version I wrote.
 
 Fortunately, Pytorch gets the [multiprocessing compatibility](http://pytorch.org/docs/master/notes/multiprocessing.html).
-I went through many Pytorch A3C examples ([there](https://github.com/ikostrikov/pytorch-a3c), [there](https://github.com/jingweiz/pytorch-rl)
-and [there](https://github.com/ShangtongZhang/DeepRL)). They are great but too complicated to dig into the code.
-Therefore, this is my motivation to write my simple example codes.
-
-BTW, if you are interested to learn Pytorch, [there](https://github.com/MorvanZhou/PyTorch-Tutorial)
- is my simple tutorial code with many visualizations. I also made the tensorflow tutorial (same as pytorch) available in [here](https://github.com/MorvanZhou/Tensorflow-Tutorial).
 
 ## Codes & Results
 
-* [shared_adam.py](/shared_adam.py): optimizer that shares its parameters in parallel
-* [utils.py](/utils.py): useful function that can be used more than once
-* [discrete_A3C.py](/discrete_A3C.py): CartPole, neural net and training for discrete action space
-* [continuous_A3C.py](/continuous_A3C.py): Pendulum, neural net and training for continuous action space
+* [shared_adam.py](/CARTPOLE/shared_adam.py): optimizer that shares its parameters in parallel
+* [utils.py](/CARTPOLE/cart_utils.py): contains plots, probability distribution, optimizer and memory functions
 
-CartPole result
-![cartpole](/results/cartpole.png)
 
-Pendulum result
-![pendulum](/results/pendulum.png)
+### CartPole results
+
+#### Training
+![cartpole](/CARTPOLE/cart_results/Compared_results/All.png)
+
+#### Testing
+![cartpole_test](/CARTPOLE/cart_results/Compared_results/All_test.png)
+
+
+### Vizdoom results
+
+#### Training
+![vizdoom](/VIZDOOM/doom_results/Compared/all.png)
+
+#### Testing
+![vizdoom_test](/VIZDOOM/doom_results/Compared/all_test.png)
 
 ## Dependencies
 
