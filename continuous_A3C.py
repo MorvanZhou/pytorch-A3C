@@ -33,8 +33,8 @@ ENV = 'Pendulum-v0'
 env = gym.make(ENV)
 N_S = env.observation_space.shape[0]
 N_A = env.action_space.shape[0]
-U_BOUND = float(env.action_space.high)
-L_BOUND = float(env.action_space.low)
+U_BOUND = float(env.action_space.high[0])
+L_BOUND = float(env.action_space.low[0])
 env.close()
 
 
