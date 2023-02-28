@@ -10,6 +10,7 @@ import os
 
 import gym
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.multiprocessing as mp
 import torch.nn as nn
@@ -33,6 +34,8 @@ ENV = 'Pendulum-v0'
 env = gym.make(ENV)
 N_S = env.observation_space.shape[0]
 N_A = env.action_space.shape[0]
+U_BOUND = float(env.action_space.high)
+L_BOUND = float(env.action_space.low)
 env.close()
 
 
@@ -100,7 +103,7 @@ class Worker(mp.Process):
                 # if self.name == 'w0':
                 #     self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
-                s_, r, done, _ = self.env.step(a.clip(-2, 2))
+                s_, r, done, _ = self.env.step(a.clip(L_BOUND, U_BOUND))
                 if t == MAX_EP_STEP - 1:
                     done = True
                 ep_r += r
