@@ -5,14 +5,18 @@ The most simple implementation for continuous action.
 View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.io/).
 """
 
-import torch
-import torch.nn as nn
-from utils import v_wrap, set_init, push_and_pull, record
-import torch.nn.functional as F
-import torch.multiprocessing as mp
-from shared_adam import SharedAdam
+import math
+import os
+
 import gym
-import math, os
+import torch
+import torch.multiprocessing as mp
+import torch.nn as nn
+import torch.nn.functional as F
+
+from shared_adam import SharedAdam
+from utils import v_wrap, set_init, push_and_pull, record
+
 os.environ["OMP_NUM_THREADS"] = "1"
 
 UPDATE_GLOBAL_ITER = 5
