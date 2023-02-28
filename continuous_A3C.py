@@ -86,7 +86,7 @@ class Net(nn.Module):
 class Worker(mp.Process):
     def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, name):
         super(Worker, self).__init__()
-        self.name = 'w%i' % name
+        self.name = name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.gnet, self.opt = gnet, opt
         self.lnet = Net(N_S, N_A)           # local network
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
-    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(mp.cpu_count())]
+    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, f"w{i:02}") for i in range(mp.cpu_count())]
     [w.start() for w in workers]
     res = []                    # record episode reward to plot
     while True:
