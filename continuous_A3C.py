@@ -21,12 +21,18 @@ os.environ["OMP_NUM_THREADS"] = "1"
 
 UPDATE_GLOBAL_ITER = 5
 GAMMA = 0.9
-MAX_EP = 3000
+MAX_EP = 2000
 MAX_EP_STEP = 200
 
-env = gym.make('Pendulum-v0')
+ENV = 'Pendulum-v0'
+# ENV = 'Humanoid-v3'
+# ENV = 'HumanoidStandup-v2'
+# ENV = 'Ant-v3'
+
+env = gym.make(ENV)
 N_S = env.observation_space.shape[0]
 N_A = env.action_space.shape[0]
+env.close()
 
 
 class Net(nn.Module):
@@ -44,7 +50,7 @@ class Net(nn.Module):
 
     def forward(self, x):
         a1 = F.relu6(self.a1(x))
-        mu = 2 * F.tanh(self.mu(a1))
+        mu = 2 * torch.tanh(self.mu(a1))
         sigma = F.softplus(self.sigma(a1)) + 0.001      # avoid 0
         c1 = F.relu6(self.c1(x))
         values = self.v(c1)
@@ -53,7 +59,10 @@ class Net(nn.Module):
     def choose_action(self, s):
         self.training = False
         mu, sigma, _ = self.forward(s)
-        m = self.distribution(mu.view(1, ).data, sigma.view(1, ).data)
+        if ENV == "Pendulum-v0":
+            m = self.distribution(mu.view(1, ).data, sigma.view(1, ).data)
+        else:
+            m = self.distribution(mu, sigma)
         return m.sample().numpy()
 
     def loss_func(self, s, a, v_t):
@@ -78,7 +87,7 @@ class Worker(mp.Process):
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.gnet, self.opt = gnet, opt
         self.lnet = Net(N_S, N_A)           # local network
-        self.env = gym.make('Pendulum-v0').unwrapped
+        self.env = gym.make(ENV).unwrapped
 
     def run(self):
         total_step = 1
@@ -87,8 +96,8 @@ class Worker(mp.Process):
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             for t in range(MAX_EP_STEP):
-                if self.name == 'w0':
-                    self.env.render()
+                # if self.name == 'w0':
+                #     self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
                 s_, r, done, _ = self.env.step(a.clip(-2, 2))
                 if t == MAX_EP_STEP - 1:
