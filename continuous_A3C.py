@@ -9,6 +9,7 @@ import math
 import os
 
 import gym
+import matplotlib.pyplot as plt
 import torch
 import torch.multiprocessing as mp
 import torch.nn as nn
@@ -139,7 +140,6 @@ if __name__ == "__main__":
             break
     [w.join() for w in workers]
 
-    import matplotlib.pyplot as plt
     plt.plot(res)
     plt.ylabel('Moving average ep reward')
     plt.xlabel('Step')
