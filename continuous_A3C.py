@@ -15,6 +15,8 @@ import torch
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import Normal
+from torch.nn import Linear
 
 from shared_adam import SharedAdam
 from utils import v_wrap, set_init, push_and_pull, record
@@ -41,36 +43,50 @@ env.close()
 
 
 class Net(nn.Module):
-    def __init__(self, s_dim, a_dim):
+    def __init__(self, input_size, output_size, hidden_size=64):
         super(Net, self).__init__()
-        self.s_dim = s_dim
-        self.a_dim = a_dim
-        self.a1 = nn.Linear(s_dim, 200)
-        self.mu = nn.Linear(200, a_dim)
-        self.sigma = nn.Linear(200, a_dim)
-        self.c1 = nn.Linear(s_dim, 100)
-        self.v = nn.Linear(100, 1)
-        set_init([self.a1, self.mu, self.sigma, self.c1, self.v])
-        self.distribution = torch.distributions.Normal
+        # self.s_dim = input_size
+        # self.a_dim = output_size
+        # self.a1 = nn.Linear(input_size, 200)
+        # self.mu = nn.Linear(200, output_size)
+        # self.sigma = nn.Linear(200, output_size)
+        # self.c1 = nn.Linear(input_size, 100)
+        # self.v = nn.Linear(100, 1)
+        # set_init([self.a1, self.mu, self.sigma, self.c1, self.v])
 
-        self.gam = 0.9
+        self.layer_1: Linear = Linear(input_size, hidden_size)
+        self.layer_2: Linear = Linear(hidden_size, hidden_size)
+        self.mu: Linear = Linear(hidden_size, output_size)
+        self.sigma: Linear = Linear(hidden_size, output_size)
+        self.v = nn.Linear(hidden_size, 1)
+        set_init([self.layer_1, self.layer_2, self.mu, self.sigma, self.v])
+
+        self.gam = 0.99
         self.lam = 0.9
 
     def forward(self, x):
-        a1 = F.relu6(self.a1(x))
-        mu = 2 * torch.tanh(self.mu(a1))
-        sigma = F.softplus(self.sigma(a1)) + 0.001      # avoid 0
-        c1 = F.relu6(self.c1(x))
-        values = self.v(c1)
+        # a1 = F.relu6(self.a1(x))
+        # mu = 2 * torch.tanh(self.mu(a1))
+        # sigma = F.softplus(self.sigma(a1)) + 0.001      # avoid 0
+        # c1 = F.relu6(self.c1(x))
+        # values = self.v(c1)
+        # return mu, sigma, values
+
+        x: torch.Tensor = F.relu(self.layer_1(x))
+        x: torch.Tensor = F.relu(self.layer_2(x))
+        mu: torch.Tensor = torch.tanh(self.mu(x))
+        sigma: torch.Tensor = F.softplus(self.sigma(x)) + 0.0001  # Don't want a zero here
+        values: torch.Tensor = self.v(x)
+
         return mu, sigma, values
 
     def choose_action(self, s):
         self.training = False
         mu, sigma, _ = self.forward(s)
         if ENV == "Pendulum-v0":
-            m = self.distribution(mu.view(1, ).data, sigma.view(1, ).data)
+            m = Normal(mu.view(1, ).data, sigma.view(1, ).data)
         else:
-            m = self.distribution(mu, sigma)
+            m = Normal(mu, sigma)
         return m.sample().numpy()
 
     def loss_func(self, s, a, v_t):
@@ -82,7 +98,7 @@ class Net(nn.Module):
             td = v_t - values
         c_loss = td.pow(2)
 
-        m = self.distribution(mu, sigma)
+        m = Normal(mu, sigma)
         log_prob = m.log_prob(a)
         entropy = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(m.scale)  # exploration
         exp_v = log_prob * td.detach() + 0.005 * entropy
