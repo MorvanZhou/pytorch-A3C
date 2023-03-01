@@ -10,6 +10,7 @@ import os
 
 import gym
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.multiprocessing as mp
 import torch.nn as nn
@@ -19,10 +20,11 @@ from shared_adam import SharedAdam
 from utils import v_wrap, set_init, push_and_pull, record
 
 os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["GA3C_GAE"] = "1"
 
 UPDATE_GLOBAL_ITER = 5
 GAMMA = 0.9
-MAX_EP = 2000
+MAX_EP = 1000
 MAX_EP_STEP = 200
 
 ENV = 'Pendulum-v0'
@@ -51,6 +53,9 @@ class Net(nn.Module):
         set_init([self.a1, self.mu, self.sigma, self.c1, self.v])
         self.distribution = torch.distributions.Normal
 
+        self.gam = 0.9
+        self.lam = 0.9
+
     def forward(self, x):
         a1 = F.relu6(self.a1(x))
         mu = 2 * torch.tanh(self.mu(a1))
@@ -71,7 +76,10 @@ class Net(nn.Module):
     def loss_func(self, s, a, v_t):
         self.train()
         mu, sigma, values = self.forward(s)
-        td = v_t - values
+        if os.environ["GA3C_GAE"] == "1":
+            td = self.compute_advantage(v_t, values)
+        else:
+            td = v_t - values
         c_loss = td.pow(2)
 
         m = self.distribution(mu, sigma)
@@ -81,6 +89,20 @@ class Net(nn.Module):
         a_loss = -exp_v
         total_loss = (a_loss + c_loss).mean()
         return total_loss
+
+    def compute_advantage(self,
+                          values_seen: torch.Tensor,
+                          values_predicted: torch.Tensor) -> torch.Tensor:
+        simple_advantage = (values_seen - values_predicted).detach()
+
+        generalized_advantage = np.empty_like(simple_advantage)
+        generalized_advantage[-1] = simple_advantage[-1]
+
+        for t in range(len(simple_advantage) - 2, -1, -1):
+            generalized_advantage[t] = simple_advantage[t] + self.gam * self.lam * generalized_advantage[t + 1]
+
+        generalized_advantage = torch.from_numpy(generalized_advantage)
+        return generalized_advantage
 
 
 class Worker(mp.Process):

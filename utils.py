@@ -2,9 +2,11 @@
 Functions that use multiple times
 """
 
-from torch import nn
-import torch
+import os
+
 import numpy as np
+import torch
+from torch import nn
 
 
 def v_wrap(np_array, dtype=np.float32):
@@ -27,7 +29,10 @@ def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma):
 
     buffer_v_target = []
     for r in br[::-1]:    # reverse buffer r
-        v_s_ = r + gamma * v_s_
+        if os.environ["GA3C_GAE"] == "1":
+            v_s_ = r + v_s_
+        else:
+            v_s_ = r + gamma * v_s_
         buffer_v_target.append(v_s_)
     buffer_v_target.reverse()
 
