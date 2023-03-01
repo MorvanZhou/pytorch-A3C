@@ -5,24 +5,37 @@ The most simple implementation for continuous action.
 View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.io/).
 """
 
-import torch
-import torch.nn as nn
-from utils import v_wrap, set_init, push_and_pull, record
-import torch.nn.functional as F
-import torch.multiprocessing as mp
-from shared_adam import SharedAdam
+import math
+import os
+
 import gym
-import math, os
+import matplotlib.pyplot as plt
+import torch
+import torch.multiprocessing as mp
+import torch.nn as nn
+import torch.nn.functional as F
+
+from shared_adam import SharedAdam
+from utils import v_wrap, set_init, push_and_pull, record
+
 os.environ["OMP_NUM_THREADS"] = "1"
 
 UPDATE_GLOBAL_ITER = 5
 GAMMA = 0.9
-MAX_EP = 3000
+MAX_EP = 2000
 MAX_EP_STEP = 200
 
-env = gym.make('Pendulum-v0')
+ENV = 'Pendulum-v0'
+# ENV = 'Humanoid-v3'
+# ENV = 'HumanoidStandup-v2'
+# ENV = 'Ant-v3'
+
+env = gym.make(ENV)
 N_S = env.observation_space.shape[0]
 N_A = env.action_space.shape[0]
+U_BOUND = float(env.action_space.high[0])
+L_BOUND = float(env.action_space.low[0])
+env.close()
 
 
 class Net(nn.Module):
@@ -40,7 +53,7 @@ class Net(nn.Module):
 
     def forward(self, x):
         a1 = F.relu6(self.a1(x))
-        mu = 2 * F.tanh(self.mu(a1))
+        mu = 2 * torch.tanh(self.mu(a1))
         sigma = F.softplus(self.sigma(a1)) + 0.001      # avoid 0
         c1 = F.relu6(self.c1(x))
         values = self.v(c1)
@@ -49,7 +62,10 @@ class Net(nn.Module):
     def choose_action(self, s):
         self.training = False
         mu, sigma, _ = self.forward(s)
-        m = self.distribution(mu.view(1, ).data, sigma.view(1, ).data)
+        if ENV == "Pendulum-v0":
+            m = self.distribution(mu.view(1, ).data, sigma.view(1, ).data)
+        else:
+            m = self.distribution(mu, sigma)
         return m.sample().numpy()
 
     def loss_func(self, s, a, v_t):
@@ -70,11 +86,11 @@ class Net(nn.Module):
 class Worker(mp.Process):
     def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, name):
         super(Worker, self).__init__()
-        self.name = 'w%i' % name
+        self.name = name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.gnet, self.opt = gnet, opt
         self.lnet = Net(N_S, N_A)           # local network
-        self.env = gym.make('Pendulum-v0').unwrapped
+        self.env = gym.make(ENV).unwrapped
 
     def run(self):
         total_step = 1
@@ -83,10 +99,10 @@ class Worker(mp.Process):
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             for t in range(MAX_EP_STEP):
-                if self.name == 'w0':
-                    self.env.render()
+                # if self.name == 'w0':
+                #     self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
-                s_, r, done, _ = self.env.step(a.clip(-2, 2))
+                s_, r, done, _ = self.env.step(a.clip(L_BOUND, U_BOUND))
                 if t == MAX_EP_STEP - 1:
                     done = True
                 ep_r += r
@@ -115,7 +131,7 @@ if __name__ == "__main__":
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
-    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, i) for i in range(mp.cpu_count())]
+    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, f"w{i:02}") for i in range(mp.cpu_count())]
     [w.start() for w in workers]
     res = []                    # record episode reward to plot
     while True:
@@ -126,7 +142,6 @@ if __name__ == "__main__":
             break
     [w.join() for w in workers]
 
-    import matplotlib.pyplot as plt
     plt.plot(res)
     plt.ylabel('Moving average ep reward')
     plt.xlabel('Step')

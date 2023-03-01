@@ -1,0 +1,5 @@
+gym==0.15.4
+matplotlib==3.2.2
+mujoco-py==2.1.2.14
+numpy==1.24.2
+torch==1.4.0
