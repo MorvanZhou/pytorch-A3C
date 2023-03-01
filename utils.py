@@ -29,7 +29,7 @@ def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma):
 
     buffer_v_target = []
     for r in br[::-1]:    # reverse buffer r
-        if os.environ["GA3C_GAE"] == 1:
+        if os.environ["GA3C_GAE"] == "1":
             v_s_ = r + v_s_
         else:
             v_s_ = r + gamma * v_s_

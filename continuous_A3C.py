@@ -20,7 +20,7 @@ from shared_adam import SharedAdam
 from utils import v_wrap, set_init, push_and_pull, record
 
 os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["GA3C_GAE"] = "10"
+os.environ["GA3C_GAE"] = "1"
 
 UPDATE_GLOBAL_ITER = 5
 GAMMA = 0.9
@@ -53,6 +53,9 @@ class Net(nn.Module):
         set_init([self.a1, self.mu, self.sigma, self.c1, self.v])
         self.distribution = torch.distributions.Normal
 
+        self.gam = 0.9
+        self.lam = 0.9
+
     def forward(self, x):
         a1 = F.relu6(self.a1(x))
         mu = 2 * torch.tanh(self.mu(a1))
@@ -73,7 +76,7 @@ class Net(nn.Module):
     def loss_func(self, s, a, v_t):
         self.train()
         mu, sigma, values = self.forward(s)
-        if os.environ["GA3C_GAE"] == 1:
+        if os.environ["GA3C_GAE"] == "1":
             td = self.compute_advantage(v_t, values)
         else:
             td = v_t - values
