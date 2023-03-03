@@ -2,9 +2,13 @@
 Functions that use multiple times
 """
 
+import pickle
+import os
 import numpy as np
 import torch
 from torch import nn
+
+RESULTS_FOLDER = "results"
 
 
 def v_wrap(np_array, dtype=np.float32):
@@ -64,3 +68,28 @@ def record(global_ep, global_ep_r, ep_r, res_queue, name):
         "Ep:", global_ep.value,
         "| Ep_r: %.0f" % global_ep_r.value,
     )
+
+
+def name_from_config(env_name: str,
+                     episodes: int,
+                     use_gae: bool,
+                     gam: float,
+                     lam: float) -> str:
+    """
+    env_eps_adv_gam_lam
+    """
+    name = f"{env_name}_{episodes}_"
+
+    if use_gae:
+        name += f"GAE_{gam}_{lam}"
+    else:
+        name += f"Simple_{gam}"
+
+    name += ".pkl"
+
+    return os.path.join(RESULTS_FOLDER, name)
+
+
+def pickle_results(results: list, name: str) -> None:
+    with open(name, "wb") as file_out:
+        pickle.dump(results, file_out)

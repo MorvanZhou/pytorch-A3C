@@ -18,7 +18,7 @@ from torch.distributions import Normal
 from torch.nn import Linear
 
 from shared_adam import SharedAdam
-from utils import v_wrap, set_init, push_and_pull, record
+from utils import v_wrap, set_init, push_and_pull, record, pickle_results, name_from_config
 
 NAME_PENDULUM = "Pendulum-v0"
 
@@ -183,3 +183,10 @@ def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae, render):
     plt.ylabel('Moving average ep reward')
     plt.xlabel('Step')
     plt.show()
+
+    filename = name_from_config(config[H_ENV_NAME],
+                                config[H_MAX_EP],
+                                config[H_USE_GAE],
+                                config[H_GAMMA],
+                                config[H_LAMBDA])
+    pickle_results(res, filename)
