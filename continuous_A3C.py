@@ -33,6 +33,7 @@ H_LOWER_BOUND = "L_BOUND"
 H_UPDATE_GLOBAL_ITER = "UPDATE_GLOBAL_ITER"
 H_MAX_EP_STEP = "MAX_EP_STEP"
 H_MAX_EP = "MAX_EP"
+H_RENDER = "render"
 
 
 class Net(nn.Module):
@@ -110,8 +111,8 @@ class Worker(mp.Process):
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
             for t in range(self.config[H_MAX_EP_STEP]):
-                # if self.name == 'w0':
-                #     self.env.render()
+                if self.config[H_RENDER] and self.name == "w00":
+                    self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
                 s_, r, done, _ = self.env.step(a.clip(self.config[H_LOWER_BOUND], self.config[H_UPPER_BOUND]))
                 if t == self.config[H_MAX_EP_STEP] - 1:
@@ -135,7 +136,7 @@ class Worker(mp.Process):
         self.res_queue.put(None)
 
 
-def init_config(gamma, lam, max_ep, env_name, use_gae):
+def init_config(gamma, lam, max_ep, env_name, use_gae, render):
     config = dict()
     config[H_GAMMA] = gamma
     config[H_LAMBDA] = lam
@@ -144,6 +145,7 @@ def init_config(gamma, lam, max_ep, env_name, use_gae):
     config[H_USE_GAE] = use_gae
     config[H_UPDATE_GLOBAL_ITER] = 200
     config[H_MAX_EP_STEP] = 500
+    config[H_RENDER] = render
 
     env = gym.make(env_name)
     config[H_STATE_SIZE] = env.observation_space.shape[0]
@@ -154,11 +156,11 @@ def init_config(gamma, lam, max_ep, env_name, use_gae):
     return config
 
 
-def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae):
+def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae, render):
 
     os.environ["OMP_NUM_THREADS"] = "1"
 
-    config = init_config(gamma, lam, max_ep, env_name, use_gae)
+    config = init_config(gamma, lam, max_ep, env_name, use_gae, render)
 
     gnet = Net(config)        # global network
     gnet.share_memory()         # share the global parameters in multiprocessing
