@@ -93,19 +93,15 @@ class Net(nn.Module):
         total_loss = (a_loss + c_loss).mean()
         return total_loss
 
-    def compute_advantage(self,
-                          values_seen: torch.Tensor,
-                          values_predicted: torch.Tensor) -> torch.Tensor:
-        simple_advantage = (values_seen - values_predicted).detach()
+    def compute_gae(self,
+                    values_seen: torch.Tensor,
+                    values_predicted: torch.Tensor) -> torch.Tensor:
 
-        generalized_advantage = np.empty_like(simple_advantage)
-        generalized_advantage[-1] = simple_advantage[-1]
+        advantage = values_seen.detach() - values_predicted.detach()
+        for i in range(len(advantage) - 2, -1, -1):
+            advantage[i] = advantage[i] + self.gam * self.lam * advantage[i + 1]
 
-        for t in range(len(simple_advantage) - 2, -1, -1):
-            generalized_advantage[t] = simple_advantage[t] + self.gam * self.lam * generalized_advantage[t + 1]
-
-        generalized_advantage = torch.from_numpy(generalized_advantage)
-        return generalized_advantage
+        return advantage
 
 
 class Worker(mp.Process):
