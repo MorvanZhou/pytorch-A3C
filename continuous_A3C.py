@@ -25,15 +25,15 @@ os.environ["GA3C_GAE"] = "1"
 
 # CPU_COUNT = 1
 CPU_COUNT = mp.cpu_count()
-UPDATE_GLOBAL_ITER = 500
+UPDATE_GLOBAL_ITER = 99999
 GAMMA = 0.9
 MAX_EP = 1000
-MAX_EP_STEP = 200
+MAX_EP_STEP = 1000
 
-ENV = 'Pendulum-v0'
+# ENV = 'Pendulum-v0'
 # ENV = 'Humanoid-v3'
 # ENV = 'HumanoidStandup-v2'
-# ENV = 'Ant-v3'
+ENV = 'Ant-v3'
 
 env = gym.make(ENV)
 N_S = env.observation_space.shape[0]
@@ -128,7 +128,7 @@ class Worker(mp.Process):
                 ep_r += r
                 buffer_a.append(a)
                 buffer_s.append(s)
-                buffer_r.append((r+8.1)/8.1)    # normalize
+                buffer_r.append(r)
 
                 if total_step % UPDATE_GLOBAL_ITER == 0 or done:  # update global and assign to local net
                     # sync
