@@ -2,8 +2,6 @@
 Functions that use multiple times
 """
 
-import os
-
 import numpy as np
 import torch
 from torch import nn
@@ -21,7 +19,7 @@ def set_init(layers):
         nn.init.constant_(layer.bias, 0.)
 
 
-def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma):
+def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma, use_gae):
     if done:
         v_s_ = 0.               # terminal
     else:
@@ -29,7 +27,7 @@ def push_and_pull(opt, lnet, gnet, done, s_, bs, ba, br, gamma):
 
     buffer_v_target = []
     for r in br[::-1]:    # reverse buffer r
-        if os.environ["GA3C_GAE"] == "1":
+        if use_gae:
             v_s_ = r + v_s_
         else:
             v_s_ = r + gamma * v_s_
