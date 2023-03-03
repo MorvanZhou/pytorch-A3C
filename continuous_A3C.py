@@ -10,7 +10,6 @@ import os
 
 import gym
 import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.multiprocessing as mp
 import torch.nn as nn
