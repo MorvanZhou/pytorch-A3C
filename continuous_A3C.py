@@ -67,12 +67,12 @@ class Net(nn.Module):
         return mu, sigma, values
 
     def choose_action(self, s):
-        self.training = False
+        self.eval()
         mu, sigma, _ = self.forward(s)
         if ENV == "Pendulum-v0":
-            m = Normal(mu.view(1, ).data, sigma.view(1, ).data)
-        else:
-            m = Normal(mu, sigma)
+            mu = mu.view(1, ).data
+            sigma = sigma.view(1, ).data
+        m = Normal(mu, sigma)
         return m.sample().numpy()
 
     def loss_func(self, s, a, v_t):
