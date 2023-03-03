@@ -20,42 +20,32 @@ from torch.nn import Linear
 from shared_adam import SharedAdam
 from utils import v_wrap, set_init, push_and_pull, record
 
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["GA3C_GAE"] = "1"
+NAME_PENDULUM = "Pendulum-v0"
 
-# CPU_COUNT = 1
-CPU_COUNT = mp.cpu_count()
-UPDATE_GLOBAL_ITER = 99999
-GAMMA = 0.9
-MAX_EP = 1000
-MAX_EP_STEP = 1000
-
-# ENV = 'Pendulum-v0'
-# ENV = 'Humanoid-v3'
-# ENV = 'HumanoidStandup-v2'
-ENV = 'Ant-v3'
-
-env = gym.make(ENV)
-N_S = env.observation_space.shape[0]
-N_A = env.action_space.shape[0]
-U_BOUND = float(env.action_space.high[0])
-L_BOUND = float(env.action_space.low[0])
-env.close()
+H_ENV_NAME = "ENV_NAME"
+H_STATE_SIZE = "N_S"
+H_ACTION_SIZE = "N_A"
+H_GAMMA = "GAMMA"
+H_LAMBDA = "LAMBDA"
+H_USE_GAE = "USE_GAE"
+H_UPPER_BOUND = "U_BOUND"
+H_LOWER_BOUND = "L_BOUND"
+H_UPDATE_GLOBAL_ITER = "UPDATE_GLOBAL_ITER"
+H_MAX_EP_STEP = "MAX_EP_STEP"
+H_MAX_EP = "MAX_EP"
 
 
 class Net(nn.Module):
-    def __init__(self, input_size, output_size, hidden_size=64):
+    def __init__(self, config):
         super(Net, self).__init__()
-
-        self.layer_1: Linear = Linear(input_size, hidden_size)
+        hidden_size = 64
+        self.config = config
+        self.layer_1: Linear = Linear(config[H_STATE_SIZE], hidden_size)
         self.layer_2: Linear = Linear(hidden_size, hidden_size)
-        self.mu: Linear = Linear(hidden_size, output_size)
-        self.sigma: Linear = Linear(hidden_size, output_size)
+        self.mu: Linear = Linear(hidden_size, config[H_ACTION_SIZE])
+        self.sigma: Linear = Linear(hidden_size, config[H_ACTION_SIZE])
         self.v = nn.Linear(hidden_size, 1)
         set_init([self.layer_1, self.layer_2, self.mu, self.sigma, self.v])
-
-        self.gam = 0.9
-        self.lam = 0.9
 
     def forward(self, x):
         x: torch.Tensor = F.relu(self.layer_1(x))
@@ -69,7 +59,7 @@ class Net(nn.Module):
     def choose_action(self, s):
         self.eval()
         mu, sigma, _ = self.forward(s)
-        if ENV == "Pendulum-v0":
+        if self.config[H_ENV_NAME] == NAME_PENDULUM:
             mu = mu.view(1, ).data
             sigma = sigma.view(1, ).data
         m = Normal(mu, sigma)
@@ -78,7 +68,7 @@ class Net(nn.Module):
     def loss_func(self, s, a, v_t):
         self.train()
         mu, sigma, values = self.forward(s)
-        if os.environ["GA3C_GAE"] == "1":
+        if self.config[H_USE_GAE]:
             td = self.compute_gae(v_t, values)
         else:
             td = v_t - values
@@ -98,41 +88,42 @@ class Net(nn.Module):
 
         advantage = values_seen.detach() - values_predicted.detach()
         for i in range(len(advantage) - 2, -1, -1):
-            advantage[i] = advantage[i] + self.gam * self.lam * advantage[i + 1]
+            advantage[i] = advantage[i] + self.config[H_GAMMA] * self.config[H_LAMBDA] * advantage[i + 1]
 
         return advantage
 
 
 class Worker(mp.Process):
-    def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, name):
+    def __init__(self, gnet, opt, global_ep, global_ep_r, res_queue, name, config):
         super(Worker, self).__init__()
+        self.config = config
         self.name = name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.gnet, self.opt = gnet, opt
-        self.lnet = Net(N_S, N_A)           # local network
-        self.env = gym.make(ENV).unwrapped
+        self.lnet = Net(config)           # local network
+        self.env = gym.make(config[H_ENV_NAME]).unwrapped
 
     def run(self):
         total_step = 1
-        while self.g_ep.value < MAX_EP:
+        while self.g_ep.value < self.config[H_MAX_EP]:
             s = self.env.reset()
             buffer_s, buffer_a, buffer_r = [], [], []
             ep_r = 0.
-            for t in range(MAX_EP_STEP):
+            for t in range(self.config[H_MAX_EP_STEP]):
                 # if self.name == 'w0':
                 #     self.env.render()
                 a = self.lnet.choose_action(v_wrap(s[None, :]))
-                s_, r, done, _ = self.env.step(a.clip(L_BOUND, U_BOUND))
-                if t == MAX_EP_STEP - 1:
+                s_, r, done, _ = self.env.step(a.clip(self.config[H_LOWER_BOUND], self.config[H_UPPER_BOUND]))
+                if t == self.config[H_MAX_EP_STEP] - 1:
                     done = True
                 ep_r += r
                 buffer_a.append(a)
                 buffer_s.append(s)
                 buffer_r.append(r)
 
-                if total_step % UPDATE_GLOBAL_ITER == 0 or done:  # update global and assign to local net
+                if total_step % self.config[H_UPDATE_GLOBAL_ITER] == 0 or done:  # update global and assign to local net
                     # sync
-                    push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, GAMMA)
+                    push_and_pull(self.opt, self.lnet, self.gnet, done, s_, buffer_s, buffer_a, buffer_r, self.config[H_GAMMA], self.config[H_UPPER_BOUND])
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:  # done and print information
@@ -144,14 +135,38 @@ class Worker(mp.Process):
         self.res_queue.put(None)
 
 
-if __name__ == "__main__":
-    gnet = Net(N_S, N_A)        # global network
+def init_config(gamma, lam, max_ep, env_name, use_gae):
+    config = dict()
+    config[H_GAMMA] = gamma
+    config[H_LAMBDA] = lam
+    config[H_MAX_EP] = max_ep
+    config[H_ENV_NAME] = env_name
+    config[H_USE_GAE] = use_gae
+    config[H_UPDATE_GLOBAL_ITER] = 200
+    config[H_MAX_EP_STEP] = 500
+
+    env = gym.make(env_name)
+    config[H_STATE_SIZE] = env.observation_space.shape[0]
+    config[H_ACTION_SIZE] = env.action_space.shape[0]
+    config[H_UPPER_BOUND] = float(env.action_space.high[0])
+    config[H_LOWER_BOUND] = float(env.action_space.low[0])
+    env.close()
+    return config
+
+
+def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae):
+
+    os.environ["OMP_NUM_THREADS"] = "1"
+
+    config = init_config(gamma, lam, max_ep, env_name, use_gae)
+
+    gnet = Net(config)        # global network
     gnet.share_memory()         # share the global parameters in multiprocessing
     opt = SharedAdam(gnet.parameters(), lr=1e-4, betas=(0.95, 0.999))  # global optimizer
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
-    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, f"w{i:02}") for i in range(CPU_COUNT)]
+    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, f"w{i:02}", config) for i in range(cpu_count)]
     [w.start() for w in workers]
     res = []                    # record episode reward to plot
     while True:
