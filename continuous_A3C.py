@@ -6,6 +6,7 @@ View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.i
 """
 
 import math
+import os
 
 import gym
 import matplotlib.pyplot as plt
@@ -18,7 +19,6 @@ from torch.nn import Linear
 
 from shared_adam import SharedAdam
 from utils import v_wrap, set_init, push_and_pull, record
-
 
 NAME_PENDULUM = "Pendulum-v0"
 
@@ -155,6 +155,9 @@ def init_config(gamma, lam, max_ep, env_name, use_gae):
 
 
 def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae):
+
+    os.environ["OMP_NUM_THREADS"] = "1"
+
     config = init_config(gamma, lam, max_ep, env_name, use_gae)
 
     gnet = Net(config)        # global network

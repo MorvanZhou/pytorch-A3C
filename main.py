@@ -14,8 +14,6 @@ ADV_GAE = "gae"
 
 if __name__ == "__main__":
 
-    os.environ["OMP_NUM_THREADS"] = "1"
-
     # Parse the command line arguments
     _parser = argparse.ArgumentParser()
     _parser.add_argument("--name", type=str, help="Name of environment", default=NAME_PENDULUM,
