@@ -24,7 +24,9 @@ from utils import v_wrap, set_init, push_and_pull, record
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["GA3C_GAE"] = "1"
 
-UPDATE_GLOBAL_ITER = 5
+# CPU_COUNT = 1
+CPU_COUNT = mp.cpu_count()
+UPDATE_GLOBAL_ITER = 500
 GAMMA = 0.9
 MAX_EP = 1000
 MAX_EP_STEP = 200
@@ -45,14 +47,6 @@ env.close()
 class Net(nn.Module):
     def __init__(self, input_size, output_size, hidden_size=64):
         super(Net, self).__init__()
-        # self.s_dim = input_size
-        # self.a_dim = output_size
-        # self.a1 = nn.Linear(input_size, 200)
-        # self.mu = nn.Linear(200, output_size)
-        # self.sigma = nn.Linear(200, output_size)
-        # self.c1 = nn.Linear(input_size, 100)
-        # self.v = nn.Linear(100, 1)
-        # set_init([self.a1, self.mu, self.sigma, self.c1, self.v])
 
         self.layer_1: Linear = Linear(input_size, hidden_size)
         self.layer_2: Linear = Linear(hidden_size, hidden_size)
@@ -61,17 +55,10 @@ class Net(nn.Module):
         self.v = nn.Linear(hidden_size, 1)
         set_init([self.layer_1, self.layer_2, self.mu, self.sigma, self.v])
 
-        self.gam = 0.99
+        self.gam = 0.9
         self.lam = 0.9
 
     def forward(self, x):
-        # a1 = F.relu6(self.a1(x))
-        # mu = 2 * torch.tanh(self.mu(a1))
-        # sigma = F.softplus(self.sigma(a1)) + 0.001      # avoid 0
-        # c1 = F.relu6(self.c1(x))
-        # values = self.v(c1)
-        # return mu, sigma, values
-
         x: torch.Tensor = F.relu(self.layer_1(x))
         x: torch.Tensor = F.relu(self.layer_2(x))
         mu: torch.Tensor = torch.tanh(self.mu(x))
@@ -93,7 +80,7 @@ class Net(nn.Module):
         self.train()
         mu, sigma, values = self.forward(s)
         if os.environ["GA3C_GAE"] == "1":
-            td = self.compute_advantage(v_t, values)
+            td = self.compute_gae(v_t, values)
         else:
             td = v_t - values
         c_loss = td.pow(2)
@@ -169,7 +156,7 @@ if __name__ == "__main__":
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
-    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, f"w{i:02}") for i in range(mp.cpu_count())]
+    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, f"w{i:02}") for i in range(CPU_COUNT)]
     [w.start() for w in workers]
     res = []                    # record episode reward to plot
     while True:
