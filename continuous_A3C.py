@@ -10,11 +10,12 @@ import os
 
 import gym
 import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import Normal
+from torch.nn import Linear
 
 from shared_adam import SharedAdam
 from utils import v_wrap, set_init, push_and_pull, record
@@ -22,7 +23,9 @@ from utils import v_wrap, set_init, push_and_pull, record
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["GA3C_GAE"] = "1"
 
-UPDATE_GLOBAL_ITER = 5
+# CPU_COUNT = 1
+CPU_COUNT = mp.cpu_count()
+UPDATE_GLOBAL_ITER = 500
 GAMMA = 0.9
 MAX_EP = 1000
 MAX_EP_STEP = 200
@@ -41,48 +44,47 @@ env.close()
 
 
 class Net(nn.Module):
-    def __init__(self, s_dim, a_dim):
+    def __init__(self, input_size, output_size, hidden_size=64):
         super(Net, self).__init__()
-        self.s_dim = s_dim
-        self.a_dim = a_dim
-        self.a1 = nn.Linear(s_dim, 200)
-        self.mu = nn.Linear(200, a_dim)
-        self.sigma = nn.Linear(200, a_dim)
-        self.c1 = nn.Linear(s_dim, 100)
-        self.v = nn.Linear(100, 1)
-        set_init([self.a1, self.mu, self.sigma, self.c1, self.v])
-        self.distribution = torch.distributions.Normal
+
+        self.layer_1: Linear = Linear(input_size, hidden_size)
+        self.layer_2: Linear = Linear(hidden_size, hidden_size)
+        self.mu: Linear = Linear(hidden_size, output_size)
+        self.sigma: Linear = Linear(hidden_size, output_size)
+        self.v = nn.Linear(hidden_size, 1)
+        set_init([self.layer_1, self.layer_2, self.mu, self.sigma, self.v])
 
         self.gam = 0.9
         self.lam = 0.9
 
     def forward(self, x):
-        a1 = F.relu6(self.a1(x))
-        mu = 2 * torch.tanh(self.mu(a1))
-        sigma = F.softplus(self.sigma(a1)) + 0.001      # avoid 0
-        c1 = F.relu6(self.c1(x))
-        values = self.v(c1)
+        x: torch.Tensor = F.relu(self.layer_1(x))
+        x: torch.Tensor = F.relu(self.layer_2(x))
+        mu: torch.Tensor = torch.tanh(self.mu(x))
+        sigma: torch.Tensor = F.softplus(self.sigma(x)) + 0.0001  # Don't want a zero here
+        values: torch.Tensor = self.v(x)
+
         return mu, sigma, values
 
     def choose_action(self, s):
-        self.training = False
+        self.eval()
         mu, sigma, _ = self.forward(s)
         if ENV == "Pendulum-v0":
-            m = self.distribution(mu.view(1, ).data, sigma.view(1, ).data)
-        else:
-            m = self.distribution(mu, sigma)
+            mu = mu.view(1, ).data
+            sigma = sigma.view(1, ).data
+        m = Normal(mu, sigma)
         return m.sample().numpy()
 
     def loss_func(self, s, a, v_t):
         self.train()
         mu, sigma, values = self.forward(s)
         if os.environ["GA3C_GAE"] == "1":
-            td = self.compute_advantage(v_t, values)
+            td = self.compute_gae(v_t, values)
         else:
             td = v_t - values
         c_loss = td.pow(2)
 
-        m = self.distribution(mu, sigma)
+        m = Normal(mu, sigma)
         log_prob = m.log_prob(a)
         entropy = 0.5 + 0.5 * math.log(2 * math.pi) + torch.log(m.scale)  # exploration
         exp_v = log_prob * td.detach() + 0.005 * entropy
@@ -90,19 +92,15 @@ class Net(nn.Module):
         total_loss = (a_loss + c_loss).mean()
         return total_loss
 
-    def compute_advantage(self,
-                          values_seen: torch.Tensor,
-                          values_predicted: torch.Tensor) -> torch.Tensor:
-        simple_advantage = (values_seen - values_predicted).detach()
+    def compute_gae(self,
+                    values_seen: torch.Tensor,
+                    values_predicted: torch.Tensor) -> torch.Tensor:
 
-        generalized_advantage = np.empty_like(simple_advantage)
-        generalized_advantage[-1] = simple_advantage[-1]
+        advantage = values_seen.detach() - values_predicted.detach()
+        for i in range(len(advantage) - 2, -1, -1):
+            advantage[i] = advantage[i] + self.gam * self.lam * advantage[i + 1]
 
-        for t in range(len(simple_advantage) - 2, -1, -1):
-            generalized_advantage[t] = simple_advantage[t] + self.gam * self.lam * generalized_advantage[t + 1]
-
-        generalized_advantage = torch.from_numpy(generalized_advantage)
-        return generalized_advantage
+        return advantage
 
 
 class Worker(mp.Process):
@@ -153,7 +151,7 @@ if __name__ == "__main__":
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     # parallel training
-    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, f"w{i:02}") for i in range(mp.cpu_count())]
+    workers = [Worker(gnet, opt, global_ep, global_ep_r, res_queue, f"w{i:02}") for i in range(CPU_COUNT)]
     [w.start() for w in workers]
     res = []                    # record episode reward to plot
     while True:
