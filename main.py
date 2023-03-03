@@ -17,7 +17,7 @@ if __name__ == "__main__":
     _parser = argparse.ArgumentParser()
     _parser.add_argument("--name", type=str, help="Name of environment", default=NAME_PENDULUM,
                          choices=[NAME_PENDULUM, NAME_HUMANOID, NAME_STANDUP, NAME_ANT])
-    _parser.add_argument("--advantage", type=str, help="Type of advantage estimator", default="gae",
+    _parser.add_argument("--advantage", type=str, help="Type of advantage estimator", default=ADV_GAE,
                          choices=[ADV_SIMPLE, ADV_GAE])
     _parser.add_argument("--episodes", type=int, help="Number of episodes", default=1000)
     _parser.add_argument("--workers", type=int, help="Number of worker threads", default=mp.cpu_count())
