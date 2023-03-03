@@ -1,5 +1,4 @@
 import argparse
-import os
 
 import torch.multiprocessing as mp
 
