@@ -70,6 +70,7 @@ def init_gui():
     root = tk.Tk()
     current_row = 0
 
+    # Title
     label_title = tk.Label(root, text="Title:")
     label_title.grid(row=current_row, column=0)
 
