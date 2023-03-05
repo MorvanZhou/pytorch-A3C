@@ -156,7 +156,7 @@ def init_config(gamma, lam, max_ep, env_name, use_gae, render):
     return config
 
 
-def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae, render):
+def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae, render, plot=False):
 
     os.environ["OMP_NUM_THREADS"] = "1"
 
@@ -179,10 +179,11 @@ def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae, render):
             break
     [w.join() for w in workers]
 
-    plt.plot(res)
-    plt.ylabel('Moving average ep reward')
-    plt.xlabel('Step')
-    plt.show()
+    if plot:
+        plt.plot(res)
+        plt.ylabel('Moving average ep reward')
+        plt.xlabel('Step')
+        plt.show()
 
     filename = name_from_config(config[H_ENV_NAME],
                                 config[H_MAX_EP],
