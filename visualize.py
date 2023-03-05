@@ -26,9 +26,13 @@ def plot(title: str, data, norm=False) -> None:
     plt.show()
 
 
-def create_label(filename: str, show_adv: bool, show_gam: bool, show_lam: bool, show_wrk: bool):
-    _, eps, workers, adv, gam, lam = split_name(filename)
+def create_label(filename: str, show_env: bool, show_adv: bool, show_gam: bool, show_lam: bool, show_wrk: bool):
+    env, eps, workers, adv, gam, lam = split_name(filename)
     label = ""
+    if show_env:
+        if len(label) > 0:
+            label += ", "
+        label += env
     if show_adv:
         label += adv
     if show_gam:
@@ -57,12 +61,12 @@ def split_name(name: str):
     return tuple(data)
 
 
-def choose_files(title, adv, gam, lam, wrk, nrm):
+def choose_files(title, env, adv, gam, lam, wrk, nrm):
     filenames = [f for f in askopenfilenames(initialdir=RESULTS_FOLDER,
                                              title="Select files",
                                              filetypes=[("Pickle files", "*.pkl")])]
     if len(filenames) > 0:
-        labels = [create_label(f, adv, gam, lam, wrk) for f in filenames]
+        labels = [create_label(f, env, adv, gam, lam, wrk) for f in filenames]
         plot(title, zip(filenames, labels), nrm)
 
 
@@ -76,6 +80,13 @@ def init_gui():
 
     entry_title = tk.Entry(root)
     entry_title.grid(row=current_row, column=1)
+
+    current_row += 1
+
+    # Environment
+    var_env = tk.IntVar()
+    checkbox_env = tk.Checkbutton(root, text="Environment", variable=var_env)
+    checkbox_env.grid(row=current_row, column=1)
 
     current_row += 1
 
@@ -117,6 +128,7 @@ def init_gui():
 
     # File picker
     button_choose_files = tk.Button(root, text="Choose files", command=lambda: choose_files(entry_title.get(),
+                                                                                            var_env.get() == 1,
                                                                                             var_adv.get() == 1,
                                                                                             var_gam.get() == 1,
                                                                                             var_lam.get() == 1,
