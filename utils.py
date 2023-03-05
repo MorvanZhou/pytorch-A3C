@@ -72,13 +72,15 @@ def record(global_ep, global_ep_r, ep_r, res_queue, name):
 
 def name_from_config(env_name: str,
                      episodes: int,
+                     workers: int,
                      use_gae: bool,
                      gam: float,
                      lam: float) -> str:
     """
-    env_eps_adv_gam_lam
+    env_eps_workers_adv_gam(_lam)
     """
-    name = f"{env_name}_{episodes}_"
+    env_name = env_name[:env_name.index("-")]
+    name = f"{env_name}_{episodes}_{workers}_"
 
     if use_gae:
         name += f"GAE_{gam}_{lam}"
