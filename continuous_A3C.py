@@ -34,6 +34,7 @@ H_UPDATE_GLOBAL_ITER = "UPDATE_GLOBAL_ITER"
 H_MAX_EP_STEP = "MAX_EP_STEP"
 H_MAX_EP = "MAX_EP"
 H_RENDER = "render"
+H_WORKERS = "workers"
 
 
 class Net(nn.Module):
@@ -136,7 +137,7 @@ class Worker(mp.Process):
         self.res_queue.put(None)
 
 
-def init_config(gamma, lam, max_ep, env_name, use_gae, render):
+def init_config(cpu_count, gamma, lam, max_ep, env_name, use_gae, render):
     config = dict()
     config[H_GAMMA] = gamma
     config[H_LAMBDA] = lam
@@ -146,6 +147,7 @@ def init_config(gamma, lam, max_ep, env_name, use_gae, render):
     config[H_UPDATE_GLOBAL_ITER] = 200
     config[H_MAX_EP_STEP] = 500
     config[H_RENDER] = render
+    config[H_WORKERS] = cpu_count
 
     env = gym.make(env_name)
     config[H_STATE_SIZE] = env.observation_space.shape[0]
@@ -160,7 +162,7 @@ def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae, render, plot=False):
 
     os.environ["OMP_NUM_THREADS"] = "1"
 
-    config = init_config(gamma, lam, max_ep, env_name, use_gae, render)
+    config = init_config(cpu_count, gamma, lam, max_ep, env_name, use_gae, render)
 
     gnet = Net(config)        # global network
     gnet.share_memory()         # share the global parameters in multiprocessing
@@ -187,6 +189,7 @@ def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae, render, plot=False):
 
     filename = name_from_config(config[H_ENV_NAME],
                                 config[H_MAX_EP],
+                                config[H_WORKERS],
                                 config[H_USE_GAE],
                                 config[H_GAMMA],
                                 config[H_LAMBDA])
