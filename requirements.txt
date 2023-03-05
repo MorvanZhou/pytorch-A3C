@@ -4,3 +4,4 @@ mujoco-py==2.1.2.14
 numpy==1.24.2
 torch==1.4.0
 pyglet==1.5.11
+tk-tools==0.16.0
