@@ -5,22 +5,38 @@ from tkinter.filedialog import askopenfilenames
 
 import matplotlib.pyplot as plt
 
-from main import ADV_GAE
 from utils import RESULTS_FOLDER
 
 
-def compare(filenames: list) -> None:
-    env = ""
-    for filename in filenames:
-        env, eps, workers, adv, gam, lam = split_name(filename)
-        with open(filename, "rb") as f_in:
+def compare(title: str, data) -> None:
+    for item in data:
+        with open(item[0], "rb") as f_in:
             unpickled = pickle.load(f_in)
-        plt.plot(unpickled)
-        plt.plot(unpickled, label=f"{workers}_{adv}_{gam}{f'_{lam}' if adv == ADV_GAE else ''}")
+        plt.plot(unpickled, label=item[1])
 
-    plt.title(env)
+    plt.title(title)
     plt.legend()
     plt.show()
+
+
+def create_label(filename: str, show_adv: bool, show_gam: bool, show_lam: bool, show_wrk: bool):
+    _, eps, workers, adv, gam, lam = split_name(filename)
+    label = ""
+    if show_adv:
+        label += adv
+    if show_gam:
+        if len(label) > 0:
+            label += ", "
+        label += f"γ={gam}"
+    if show_lam:
+        if len(label) > 0:
+            label += ", "
+        label += f"λ={lam}"
+    if show_wrk:
+        if len(label) > 0:
+            label += ", "
+        label += f"W={workers}"
+    return label
 
 
 def split_name(name: str):
@@ -34,12 +50,70 @@ def split_name(name: str):
     return tuple(data)
 
 
+def choose_files(title, adv, gam, lam, wrk):
+    filenames = [f for f in askopenfilenames(initialdir=RESULTS_FOLDER,
+                                             title="Select files",
+                                             filetypes=[("Pickle files", "*.pkl")])]
+    if len(filenames) > 0:
+        labels = [create_label(f, adv, gam, lam, wrk) for f in filenames]
+        compare(title, zip(filenames, labels))
+
+
+def init_gui():
+    root = tk.Tk()
+    current_row = 0
+
+    label_title = tk.Label(root, text="Title:")
+    label_title.grid(row=current_row)
+
+    entry_title = tk.Entry(root)
+    entry_title.grid(row=current_row, column=1)
+
+    current_row += 1
+
+    # Advantage
+    var_adv = tk.IntVar()
+    checkbox_adv = tk.Checkbutton(root, text="Advantage", variable=var_adv)
+    checkbox_adv.grid(row=current_row)
+
+    current_row += 1
+
+    # Gamma
+    var_gam = tk.IntVar()
+    checkbox_gam = tk.Checkbutton(root, text="Gamma", variable=var_gam)
+    checkbox_gam.grid(row=current_row)
+
+    current_row += 1
+
+    # Lambda
+    var_lam = tk.IntVar()
+    checkbox_lam = tk.Checkbutton(root, text="Lambda", variable=var_lam)
+    checkbox_lam.grid(row=current_row)
+
+    current_row += 1
+
+    # Workers
+    var_wrk = tk.IntVar()
+    checkbox_wrk = tk.Checkbutton(root, text="Workers", variable=var_wrk)
+    checkbox_wrk.grid(row=current_row)
+
+    current_row += 1
+
+    # File picker
+    button_choose_files = tk.Button(root, text="Choose files", command=lambda: choose_files(entry_title.get(),
+                                                                                            var_adv.get() == 1,
+                                                                                            var_gam.get() == 1,
+                                                                                            var_lam.get() == 1,
+                                                                                            var_wrk.get() == 1))
+    button_choose_files.grid(row=current_row, column=1)
+
+    # Quit
+    button_quit = tk.Button(root, text="Exit", command=root.destroy)
+    button_quit.grid(row=current_row, column=2)
+
+    return root
+
+
 if __name__ == "__main__":
-    _root = tk.Tk()
-    _root.withdraw()
-    _root.filenames = askopenfilenames(initialdir=RESULTS_FOLDER,
-                                       title="Select files",
-                                       filetypes=[("Pickle files", "*.pkl")])
-    _filenames = [s for s in _root.filenames]
-    _root.destroy()
-    compare(_filenames)
+    _root = init_gui()
+    _root.mainloop()
