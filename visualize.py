@@ -108,6 +108,7 @@ def init_gui():
 
     # Normalise
     var_nrm = tk.IntVar()
+    var_nrm.set(1)
     checkbox_nrm = tk.Checkbutton(root, text="Normalise?", variable=var_nrm)
     checkbox_nrm.grid(row=current_row, column=1)
 
