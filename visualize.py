@@ -2,31 +2,65 @@ import os
 import pickle
 import tkinter as tk
 from tkinter.filedialog import askopenfilenames
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 
 from utils import RESULTS_FOLDER
 
 
-def normalise(results: list):
-    u_bound = max(results)
-    l_bound = min(results)
-    delta = u_bound - l_bound
+def normalise(results: list) -> list:
+    """
+    Return results normalized to [0, 1]
+    :param results:
+    :return:
+    """
+    u_bound: float = max(results)
+    l_bound: float = min(results)
+    delta: float = u_bound - l_bound
+
     return [(v - l_bound) / delta for v in results]
 
 
-def plot(title: str, data, norm=False) -> None:
+def plot(title: str,
+         data: List[tuple],
+         norm: bool = False) -> None:
+    """
+    Plot the results in data
+    :param title:
+    :param data:
+    :param norm: If True, normalize results first
+    :return:
+    """
+    use_legend: bool = False
     for item in data:
         with open(item[0], "rb") as f_in:
             unpickled = pickle.load(f_in)
         plt.plot(normalise(unpickled) if norm else unpickled, label=item[1])
+        use_legend = len(item[1]) > 0
 
     plt.title(title)
-    plt.legend()
+    if use_legend:
+        plt.legend()
     plt.show()
 
 
-def create_label(filename: str, show_env: bool, show_adv: bool, show_gam: bool, show_lam: bool, show_wrk: bool):
+def create_label(filename: str,
+                 show_env: bool,
+                 show_adv: bool,
+                 show_gam: bool,
+                 show_lam: bool,
+                 show_wrk: bool) -> str:
+    """
+    For display in plots
+    :param filename:
+    :param show_env:
+    :param show_adv:
+    :param show_gam:
+    :param show_lam:
+    :param show_wrk:
+    :return:
+    """
     env, eps, workers, adv, gam, lam = split_name(filename)
     label = ""
     if show_env:
@@ -47,30 +81,57 @@ def create_label(filename: str, show_env: bool, show_adv: bool, show_gam: bool, 
         if len(label) > 0:
             label += ", "
         label += f"W={workers}"
+
     return label
 
 
-def split_name(name: str):
+def split_name(name: str) -> Tuple[str, ...]:
     """
-    ['Pendulum', '1000', '4', 'Simple', '0.9']
+    Extract info from filename; return as tuple
+    e.g.: ['Pendulum', '1000', '4', 'Simple', '0.9']
+    e.g.: ['Pendulum', '1000', '4', 'GAE', '0.9', 0.99]
     """
     data = os.path.basename(name).split("_")
     data[-1] = data[-1][:data[-1].index(".pkl")]
+
+    # Add empty string for lambda when simple advantage
     if len(data) == 5:
         data.append("")
+
     return tuple(data)
 
 
-def choose_files(title, env, adv, gam, lam, wrk, nrm):
+def choose_files(title: str,
+                 env: bool,
+                 adv: bool,
+                 gam: bool,
+                 lam: bool,
+                 wrk: bool,
+                 nrm: bool) -> None:
+    """
+    Open a file picker in results folder. If files selected, plot data
+    :param title:
+    :param env:
+    :param adv:
+    :param gam:
+    :param lam:
+    :param wrk:
+    :param nrm:
+    :return:
+    """
     filenames = [f for f in askopenfilenames(initialdir=RESULTS_FOLDER,
                                              title="Select files",
                                              filetypes=[("Pickle files", "*.pkl")])]
     if len(filenames) > 0:
         labels = [create_label(f, env, adv, gam, lam, wrk) for f in filenames]
-        plot(title, zip(filenames, labels), nrm)
+        plot(title, [z for z in zip(filenames, labels)], nrm)
 
 
 def init_gui():
+    """
+    Set up the tkinter gui and return root reference
+    :return:
+    """
     root = tk.Tk()
     current_row = 0
 
