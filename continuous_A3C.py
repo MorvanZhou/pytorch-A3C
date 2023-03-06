@@ -158,7 +158,7 @@ def init_config(cpu_count, gamma, lam, max_ep, env_name, use_gae, render):
     return config
 
 
-def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae, render, plot=False):
+def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae, render, plot=True):
 
     os.environ["OMP_NUM_THREADS"] = "1"
 
