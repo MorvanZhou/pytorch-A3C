@@ -21,7 +21,7 @@ if __name__ == "__main__":
                          choices=[ADV_SIMPLE, ADV_GAE])
     _parser.add_argument("--episodes", type=int, help="Number of episodes", default=1000)
     _parser.add_argument("--workers", type=int, help="Number of worker threads", default=mp.cpu_count())
-    _parser.add_argument("--gam", type=float, help="Gamma", default=0.9)
+    _parser.add_argument("--gam", type=float, help="Gamma", default=0.95)
     _parser.add_argument("--lam", type=float, help="Lambda", default=0.99)
     _parser.add_argument("--render", type=bool, help="Render one worker", default=False)
     _args = _parser.parse_args()

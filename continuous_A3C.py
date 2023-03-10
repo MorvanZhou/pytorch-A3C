@@ -37,30 +37,74 @@ H_RENDER = "render"
 H_WORKERS = "workers"
 
 
-class Net(nn.Module):
-    def __init__(self, config):
-        super(Net, self).__init__()
-        hidden_size = 64
-        self.config = config
-        self.layer_1: Linear = Linear(config[H_STATE_SIZE], hidden_size)
-        self.layer_2: Linear = Linear(hidden_size, hidden_size)
-        self.mu: Linear = Linear(hidden_size, config[H_ACTION_SIZE])
-        self.sigma: Linear = Linear(hidden_size, config[H_ACTION_SIZE])
-        self.v = nn.Linear(hidden_size, 1)
-        set_init([self.layer_1, self.layer_2, self.mu, self.sigma, self.v])
+class Actor(nn.Module):
+    def __init__(self, state_size, action_size, hidden_1_size, hidden_2_size, hidden_3_size):
+        super(Actor, self).__init__()
+
+        self.layer_1: Linear = Linear(state_size, hidden_1_size)
+        self.layer_2: Linear = Linear(hidden_1_size, hidden_2_size)
+        self.layer_3: Linear = Linear(hidden_2_size, hidden_3_size)
+
+        self.mu: Linear = Linear(hidden_3_size, action_size)
+        self.sigma: Linear = Linear(hidden_3_size, action_size)
+
+        set_init([self.layer_1, self.layer_2, self.layer_3, self.mu, self.sigma])
 
     def forward(self, x):
-        x: torch.Tensor = F.relu(self.layer_1(x))
-        x: torch.Tensor = F.relu(self.layer_2(x))
+        x: torch.Tensor = torch.tanh(self.layer_1(x))
+        x: torch.Tensor = torch.tanh(self.layer_2(x))
+        x: torch.Tensor = torch.tanh(self.layer_3(x))
+
         mu: torch.Tensor = torch.tanh(self.mu(x))
         sigma: torch.Tensor = F.softplus(self.sigma(x)) + 0.0001  # Don't want a zero here
+
+        return mu, sigma
+
+
+class Critic(nn.Module):
+    def __init__(self, state_size, hidden_1_size, hidden_2_size, hidden_3_size):
+        super(Critic, self).__init__()
+
+        self.layer_1: Linear = Linear(state_size, hidden_1_size)
+        self.layer_2: Linear = Linear(hidden_1_size, hidden_2_size)
+        self.layer_3: Linear = Linear(hidden_2_size, hidden_3_size)
+
+        self.v = nn.Linear(hidden_3_size, 1)
+
+        set_init([self.layer_1, self.layer_2, self.layer_3, self.v])
+
+    def forward(self, x):
+        x: torch.Tensor = torch.tanh(self.layer_1(x))
+        x: torch.Tensor = torch.tanh(self.layer_2(x))
+        x: torch.Tensor = torch.tanh(self.layer_3(x))
+
         values: torch.Tensor = self.v(x)
+
+        return values
+
+
+class ActorCritic(nn.Module):
+    def __init__(self, config):
+        super(ActorCritic, self).__init__()
+
+        self.config = config
+
+        hidden_1_size = 100
+        hidden_2_size = 50
+        hidden_3_size = 25
+
+        self.actor = Actor(config[H_STATE_SIZE], config[H_ACTION_SIZE], hidden_1_size, hidden_2_size, hidden_3_size)
+        self.critic = Critic(config[H_STATE_SIZE], hidden_1_size, hidden_2_size, hidden_3_size)
+
+    def forward(self, x):
+        mu, sigma = self.actor(x)
+        values = self.critic(x)
 
         return mu, sigma, values
 
     def choose_action(self, s):
         self.eval()
-        mu, sigma, _ = self.forward(s)
+        mu, sigma = self.actor(s)
         if self.config[H_ENV_NAME] == NAME_PENDULUM:
             mu = mu.view(1, ).data
             sigma = sigma.view(1, ).data
@@ -69,7 +113,8 @@ class Net(nn.Module):
 
     def loss_func(self, s, a, v_t):
         self.train()
-        mu, sigma, values = self.forward(s)
+        mu, sigma = self.actor(s)
+        values = self.critic(s)
         if self.config[H_USE_GAE]:
             td = self.compute_gae(v_t, values)
         else:
@@ -102,7 +147,7 @@ class Worker(mp.Process):
         self.name = name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.gnet, self.opt = gnet, opt
-        self.lnet = Net(config)           # local network
+        self.lnet = ActorCritic(config)           # local network
         self.env = gym.make(config[H_ENV_NAME]).unwrapped
 
     def run(self):
@@ -139,6 +184,7 @@ class Worker(mp.Process):
 
 def init_config(cpu_count, gamma, lam, max_ep, env_name, use_gae, render):
     config = dict()
+
     config[H_GAMMA] = gamma
     config[H_LAMBDA] = lam
     config[H_MAX_EP] = max_ep
@@ -155,6 +201,7 @@ def init_config(cpu_count, gamma, lam, max_ep, env_name, use_gae, render):
     config[H_UPPER_BOUND] = float(env.action_space.high[0])
     config[H_LOWER_BOUND] = float(env.action_space.low[0])
     env.close()
+
     return config
 
 
@@ -164,7 +211,7 @@ def a3c(cpu_count, gamma, lam, max_ep, env_name, use_gae, render, plot=True):
 
     config = init_config(cpu_count, gamma, lam, max_ep, env_name, use_gae, render)
 
-    gnet = Net(config)        # global network
+    gnet = ActorCritic(config)        # global network
     gnet.share_memory()         # share the global parameters in multiprocessing
     opt = SharedAdam(gnet.parameters(), lr=1e-4, betas=(0.95, 0.999))  # global optimizer
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
